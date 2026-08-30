@@ -1,65 +1,23 @@
 from __future__ import annotations
 
-import json
 import secrets
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from .auth import HealthToken, SamsungHealthCloudError
+from .auth import HealthToken
+from .credentials import MasterCredentials, load_master_credentials
 from .scsp import CloudToken
 from .state import HealthState, StateStore
 
-
-@dataclass(frozen=True, slots=True, repr=False)
-class MasterCredentials:
-    token: str
-    login_id: str
-    physical_address: str
-    auth_server_url: str
-    user_id: str
-
-    def __repr__(self) -> str:
-        return "MasterCredentials(token='<redacted>', login_id='<redacted>')"
-
-
-def load_master_credentials(path: Path) -> MasterCredentials:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        raise SamsungHealthCloudError(
-            "unable to read Samsung Find authentication state"
-        ) from exc
-    tokens = payload.get("tokens") if isinstance(payload.get("tokens"), dict) else {}
-    account = payload.get("account") if isinstance(payload.get("account"), dict) else {}
-    token = (
-        payload.get("userauth_token")
-        or tokens.get("persistent_master_token")
-        or payload.get("persistent_master_token")
-    )
-    login_id = (
-        payload.get("login_id")
-        or payload.get("account_email")
-        or payload.get("email")
-        or account.get("email")
-    )
-    physical_address = payload.get("device_id")
-    auth_server_url = payload.get("auth_server_url")
-    user_id = payload.get("user_id") or ""
-    required = (token, login_id, physical_address, auth_server_url)
-    if not all(isinstance(value, str) and value for value in required):
-        raise SamsungHealthCloudError(
-            "Samsung Find state is missing required authentication fields"
-        )
-    return MasterCredentials(
-        token=token,
-        login_id=login_id,
-        physical_address=physical_address,
-        auth_server_url=auth_server_url,
-        user_id=user_id if isinstance(user_id, str) else "",
-    )
+__all__ = [
+    "HealthAuthProtocol",
+    "MasterCredentials",
+    "SamsungHealthService",
+    "ScspProtocol",
+    "load_master_credentials",
+]
 
 
 class HealthAuthProtocol(Protocol):

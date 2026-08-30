@@ -26,7 +26,7 @@ def test_mcp_read_records_enforces_hard_limit(tmp_path: Path):
     cache.upsert_documents("com.samsung.health.weight", docs)
 
     config = HealthConfig(cache_path=db_path)
-    server = create_mcp_server(config=config)
+    server = create_mcp_server(config=config, allow_records=True)
 
     # Calling with limit=1000 should be clamped to hard server max (e.g. 50)
     result = invoke_tool(

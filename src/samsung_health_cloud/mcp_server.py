@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -11,6 +12,7 @@ from .client import SamsungHealthClient, SamsungHealthLocalClient
 from .config import HealthConfig
 from .exceptions import SamsungHealthError, UsageError
 from .serialization import envelope, error_envelope, redact_secrets
+from .state import StateStore
 
 __all__ = [
     "SamsungHealthMcpServer",
@@ -22,6 +24,8 @@ __all__ = [
 ]
 
 MAX_RECORD_LIMIT = 50
+MAX_SYNC_DAYS = 90
+_MANIFEST_ID_PATTERN = re.compile(r"^[a-zA-Z0-9._-]+$")
 
 
 class SamsungHealthMcpServer:
@@ -31,8 +35,8 @@ class SamsungHealthMcpServer:
         self,
         config: HealthConfig | None = None,
         *,
-        allow_records: bool = True,
-        allow_sync: bool = True,
+        allow_records: bool = False,
+        allow_sync: bool = False,
     ) -> None:
         self.config = config or HealthConfig()
         self.allow_records = allow_records
@@ -55,7 +59,7 @@ class SamsungHealthMcpServer:
         }
 
     def _register_default_tools(self) -> None:
-        # 1. status
+        # 1. status (strictly offline local inspection)
         self._register_tool(
             name="samsung_health_status",
             description="Inspect local authentication token presence and expiration timestamps without exposing secrets.",
@@ -162,7 +166,7 @@ class SamsungHealthMcpServer:
             handler=self._tool_cache_status,
         )
 
-        # 7. read_records (sensitive / bounded)
+        # 7. read_records (sensitive / bounded / opt-in)
         if self.allow_records:
             self._register_tool(
                 name="samsung_health_read_records",
@@ -199,7 +203,7 @@ class SamsungHealthMcpServer:
                 handler=self._tool_read_records,
             )
 
-        # 8. sync (gated)
+        # 8. sync (opt-in)
         if self.allow_sync:
             self._register_tool(
                 name="samsung_health_sync",
@@ -214,11 +218,8 @@ class SamsungHealthMcpServer:
                         "days": {
                             "type": "integer",
                             "minimum": 1,
-                            "description": "Days of recent history to sync (default: 14)",
-                        },
-                        "all_history": {
-                            "type": "boolean",
-                            "description": "Sync complete historical dataset",
+                            "maximum": MAX_SYNC_DAYS,
+                            "description": f"Days of recent history to sync (1-{MAX_SYNC_DAYS}, default: 14)",
                         },
                         "force": {
                             "type": "boolean",
@@ -231,14 +232,32 @@ class SamsungHealthMcpServer:
 
     # Tool implementations
     def _tool_status(self, **_kwargs: Any) -> Any:
-        with SamsungHealthClient(config=self.config) as client:
-            return client.status()
+        store = StateStore(self.config.state_path)
+        state = store.load()
+        return {
+            "health_access_token_present": bool(state.health_access_token),
+            "health_access_expires_at": state.health_access_expires_at,
+            "health_refresh_token_present": bool(state.health_refresh_token),
+            "health_refresh_expires_at": state.health_refresh_expires_at,
+            "cloud_token_present": bool(state.cloud_token),
+            "cloud_expires_at": state.cloud_expires_at,
+            "registration_present": bool(state.registration_id),
+            "user_id_present": bool(state.user_id),
+            "cdid_present": bool(state.cdid),
+            "master_state_present": self.config.master_state_path.exists(),
+        }
 
     def _tool_types(self, query: str | None = None, **_kwargs: Any) -> Any:
+        if query and (len(query) > 100 or not _MANIFEST_ID_PATTERN.fullmatch(query)):
+            raise UsageError("invalid manifest query parameter")
         with SamsungHealthLocalClient(config=self.config) as client:
             return client.types(query=query)
 
     def _tool_inventory(self, manifest_id: str | None = None, **_kwargs: Any) -> Any:
+        if manifest_id and (
+            len(manifest_id) > 100 or not _MANIFEST_ID_PATTERN.fullmatch(manifest_id)
+        ):
+            raise UsageError("invalid manifest ID parameter")
         with SamsungHealthLocalClient(config=self.config) as client:
             return client.inventory(manifest_id=manifest_id)
 
@@ -253,6 +272,12 @@ class SamsungHealthMcpServer:
         compare: str | None = None,
         **_kwargs: Any,
     ) -> Any:
+        if (
+            not health_type
+            or len(health_type) > 100
+            or not _MANIFEST_ID_PATTERN.fullmatch(health_type)
+        ):
+            raise UsageError("invalid health_type parameter")
         with SamsungHealthLocalClient(config=self.config) as client:
             return client.analyze(
                 health_type=health_type,
@@ -265,6 +290,8 @@ class SamsungHealthMcpServer:
             )
 
     def _tool_summary(self, day: str | None = None, **_kwargs: Any) -> Any:
+        if day and len(day) > 30:
+            raise UsageError("invalid date parameter length")
         with SamsungHealthLocalClient(config=self.config) as client:
             return client.summary(day=day)
 
@@ -281,7 +308,12 @@ class SamsungHealthMcpServer:
         offset: int = 0,
         **_kwargs: Any,
     ) -> Any:
-        # Enforce server-side hard maximum limit
+        if (
+            not manifest_id
+            or len(manifest_id) > 100
+            or not _MANIFEST_ID_PATTERN.fullmatch(manifest_id)
+        ):
+            raise UsageError("invalid manifest_id parameter")
         clamped_limit = min(max(1, int(limit)), MAX_RECORD_LIMIT)
         clamped_offset = max(0, int(offset))
         with SamsungHealthLocalClient(config=self.config) as client:
@@ -293,7 +325,6 @@ class SamsungHealthMcpServer:
                 offset=clamped_offset,
                 envelope=False,
             )
-            # Mask sensitive strings and signed URLs
             clean_records = redact_secrets(records)
             return {
                 "manifest_id": manifest_id,
@@ -310,15 +341,19 @@ class SamsungHealthMcpServer:
         self,
         manifest_id: str | None = None,
         days: int = 14,
-        all_history: bool = False,
         force: bool = False,
         **_kwargs: Any,
     ) -> Any:
+        if manifest_id and (
+            len(manifest_id) > 100 or not _MANIFEST_ID_PATTERN.fullmatch(manifest_id)
+        ):
+            raise UsageError("invalid manifest_id parameter")
+        clamped_days = min(max(1, int(days)), MAX_SYNC_DAYS)
         with SamsungHealthClient(config=self.config) as client:
             return client.sync(
                 manifest_id=manifest_id,
-                days=days,
-                all_history=all_history,
+                days=clamped_days,
+                all_history=False,
                 force=force,
             )
 
@@ -326,8 +361,8 @@ class SamsungHealthMcpServer:
 def create_mcp_server(
     config: HealthConfig | None = None,
     *,
-    allow_records: bool = True,
-    allow_sync: bool = True,
+    allow_records: bool = False,
+    allow_sync: bool = False,
 ) -> SamsungHealthMcpServer:
     return SamsungHealthMcpServer(
         config=config,
@@ -351,7 +386,7 @@ def invoke_tool(
     server: SamsungHealthMcpServer, name: str, arguments: dict[str, Any]
 ) -> dict[str, Any]:
     if name not in server._tools:
-        return error_envelope("tool_not_found", f"unknown MCP tool: {name}")
+        return error_envelope("tool_not_found", f"unknown or disabled MCP tool: {name}")
 
     tool_def = server._tools[name]
     handler = tool_def["handler"]
@@ -362,8 +397,8 @@ def invoke_tool(
         return error_envelope("usage_error", str(exc))
     except SamsungHealthError as exc:
         return error_envelope("health_error", str(exc))
-    except Exception as exc:  # noqa: BLE001
-        return error_envelope("internal_error", f"{type(exc).__name__}: execution failed")
+    except Exception:  # noqa: BLE001
+        return error_envelope("internal_error", "An internal error occurred during tool execution.")
 
 
 def run_stdio_server(server: SamsungHealthMcpServer | None = None) -> int:
@@ -460,11 +495,11 @@ def run_stdio_server(server: SamsungHealthMcpServer | None = None) -> int:
 
             sys.stdout.write(json.dumps(resp) + "\n")
             sys.stdout.flush()
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001
             err_resp = {
                 "jsonrpc": "2.0",
                 "id": None,
-                "error": {"code": -32700, "message": str(exc)},
+                "error": {"code": -32700, "message": "Failed to parse JSON-RPC message."},
             }
             sys.stdout.write(json.dumps(err_resp) + "\n")
             sys.stdout.flush()
@@ -481,10 +516,7 @@ def main(argv: list[str] | None = None) -> int:
         "--timezone", default="UTC", help="Timezone for dates and bounds (default: UTC)"
     )
     parser.add_argument(
-        "--master-state",
-        type=Path,
-        default=None,
-        help="Override path to master credentials",
+        "--master-state", type=Path, default=None, help="Override path to master credentials"
     )
     parser.add_argument("--state", type=Path, default=None, help="Override path to session state")
     parser.add_argument(
@@ -499,9 +531,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Override path to SQLite cache",
     )
     parser.add_argument(
-        "--no-records", action="store_true", help="Disable raw record retrieval tool"
+        "--allow-records", action="store_true", help="Opt-in to enable raw record retrieval tool"
     )
-    parser.add_argument("--no-sync", action="store_true", help="Disable cloud synchronization tool")
+    parser.add_argument(
+        "--allow-sync", action="store_true", help="Opt-in to enable cloud synchronization tool"
+    )
 
     args = parser.parse_args(argv)
 
@@ -515,8 +549,8 @@ def main(argv: list[str] | None = None) -> int:
 
     server = create_mcp_server(
         config=config,
-        allow_records=not args.no_records,
-        allow_sync=not args.no_sync,
+        allow_records=args.allow_records,
+        allow_sync=args.allow_sync,
     )
 
     return run_stdio_server(server)

@@ -159,6 +159,13 @@ class SamsungHealthLocalClient:
         all_history: bool = False,
         compare: str | None = None,
     ) -> dict[str, object]:
+        if compare is not None and compare != "previous":
+            raise UsageError(
+                f"unsupported compare value: {compare!r}, only \x27previous\x27 is supported"
+            )
+        if period is not None and period not in ("day", "week", "month"):
+            raise UsageError(f"unsupported period: {period!r}, must be one of: day, week, month")
+
         # Validate option exclusivity
         active_selectors = sum(
             (bool(latest), bool(period), bool(since or until), bool(all_history))
@@ -220,10 +227,12 @@ class SamsungHealthLocalClient:
                     until_ms=until_ms or 9_223_372_036_854_775_807,
                 )
             sel_period = period or "week"
-            s, u = period_bounds(sel_period, today)
+            s, u = period_bounds(sel_period, today, tz=self.config.timezone)
             res = self._analysis_engine.exercise(since_ms=s, until_ms=u)
             if compare == "previous":
-                prev_s, prev_u = period_bounds(sel_period, today, offset=-1)
+                prev_s, prev_u = period_bounds(
+                    sel_period, today, offset=-1, tz=self.config.timezone
+                )
                 prev_res = self._analysis_engine.exercise(since_ms=prev_s, until_ms=prev_u)
                 res["comparison"] = {"previous_period": prev_res}
             return res
@@ -243,7 +252,7 @@ class SamsungHealthLocalClient:
                 until_ms or 9_223_372_036_854_775_807,
             )
         sel_period = period or "week"
-        s, u = period_bounds(sel_period, today)
+        s, u = period_bounds(sel_period, today, tz=self.config.timezone)
         return self._analysis_engine.generic(resolved.manifest_id, s, u)
 
     def read_data(
@@ -256,12 +265,20 @@ class SamsungHealthLocalClient:
         offset: int = 0,
         envelope: bool = False,
     ) -> list[dict[str, Any]]:
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1 or limit > 10000:
+            raise UsageError("limit must be an integer between 1 and 10000")
+        if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
+            raise UsageError("offset must be a non-negative integer")
+
         manifests = self._catalog_store.load()
         resolved = resolve_manifest(manifests, manifest_id)
 
         tz_str = str(self.config.timezone)
         since_ms = parse_instant_ms(since, timezone=tz_str) if since else None
         until_ms = parse_until_ms(until, timezone=tz_str) if until else None
+
+        if since_ms is not None and until_ms is not None and since_ms > until_ms:
+            raise UsageError("since timestamp must not be after until timestamp")
 
         since_val = since_ms or 0
         until_val = until_ms if until_ms is not None else 9_223_372_036_854_775_807
@@ -343,6 +360,15 @@ class SamsungHealthClient(SamsungHealthLocalClient):
         all_types: bool = False,
         force: bool = False,
     ) -> dict[str, object]:
+        if manifest_id and all_types:
+            raise UsageError("cannot combine specific manifest_id with all_types=True")
+        if all_history:
+            if days != 14:
+                raise UsageError("cannot combine explicit days with all_history=True")
+        else:
+            if not isinstance(days, int) or isinstance(days, bool) or days < 1 or days > 3650:
+                raise UsageError("days must be an integer between 1 and 3650")
+
         state = self._service.initialize()
         manifests = self._catalog_store.load()
         if not manifests:

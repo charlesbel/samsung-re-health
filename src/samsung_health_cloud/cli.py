@@ -360,9 +360,10 @@ def _time_bounds(args: argparse.Namespace) -> tuple[int | None, int | None]:
     return since_ms, until_ms
 
 
-def _parse_day(value: str | None) -> date:
+def _parse_day(value: str | None, timezone: str | ZoneInfo = "UTC") -> date:
     if value is None:
-        return datetime.now(ZoneInfo("UTC")).date()
+        tz = ZoneInfo(timezone) if isinstance(timezone, str) else timezone
+        return datetime.now(tz).date()
     try:
         return date.fromisoformat(value)
     except ValueError as exc:
@@ -399,9 +400,12 @@ def _sync_cache(
     )
 
 
-def _report_from_cache(command: str, cache: HealthCache, day_value: str | None) -> dict:
-    analytics = HealthAnalytics(cache)
-    day = _parse_day(day_value)
+def _report_from_cache(
+    command: str, cache: HealthCache, day_value: str | None, timezone: str | ZoneInfo = "UTC"
+) -> dict:
+    tz = ZoneInfo(timezone) if isinstance(timezone, str) else timezone
+    analytics = HealthAnalytics(cache, timezone=tz)
+    day = _parse_day(day_value, timezone=tz)
     if command == "steps":
         return analytics.steps(day)
     if command == "sleep":
@@ -448,7 +452,11 @@ def _validate_analysis_options(args: argparse.Namespace, query: str) -> None:
 def _analysis_bounds(args: argparse.Namespace) -> tuple[int, int]:
     if args.all_history:
         return 0, MAX_MS
-    tz = ZoneInfo(args.timezone) if isinstance(getattr(args, "timezone", None), str) else PARIS
+    tz = (
+        ZoneInfo(args.timezone)
+        if isinstance(getattr(args, "timezone", None), str)
+        else ZoneInfo("UTC")
+    )
     if args.since or args.until:
         since_ms = parse_instant_ms(args.since, timezone=tz) if args.since else 0
         until_ms = parse_until_ms(args.until, timezone=tz) if args.until else MAX_MS
@@ -462,7 +470,11 @@ def _analysis_bounds(args: argparse.Namespace) -> tuple[int, int]:
 def _analysis_report(
     args: argparse.Namespace, cache: HealthCache, manifests: list[ManifestInfo]
 ) -> dict:
-    tz = ZoneInfo(args.timezone) if isinstance(getattr(args, "timezone", None), str) else PARIS
+    tz = (
+        ZoneInfo(args.timezone)
+        if isinstance(getattr(args, "timezone", None), str)
+        else ZoneInfo("UTC")
+    )
     engine = HealthAnalysisEngine(cache, timezone=tz)
     query = args.query.lower().replace("-", "_")
     _validate_analysis_options(args, query)
@@ -643,7 +655,12 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
         if args.command == "analyze":
             return _analysis_report(args, cache, manifests), 0
         if args.command in ("summary", "steps", "sleep", "heart-rate", "weight"):
-            return _report_from_cache(args.command, cache, getattr(args, "day", None)), 0
+            return _report_from_cache(
+                args.command,
+                cache,
+                getattr(args, "day", None),
+                timezone=getattr(args, "timezone", "UTC"),
+            ), 0
         if args.command == "data":
             manifest = resolve_manifest(manifests, args.query)
             query_since = parse_instant_ms(args.since, timezone=args.timezone) if args.since else 0
@@ -838,7 +855,12 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
                 since_ms=since_ms,
                 until_ms=int(window_end.timestamp() * 1000),
             )
-            return _report_from_cache(args.command, cache, getattr(args, "day", None)), 0
+            return _report_from_cache(
+                args.command,
+                cache,
+                getattr(args, "day", None),
+                timezone=getattr(args, "timezone", "UTC"),
+            ), 0
 
         if args.command == "read":
             manifest = _find_manifest(manifests, args.manifest_id)

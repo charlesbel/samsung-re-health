@@ -1,18 +1,46 @@
 [project]
 name = "samsung-health-cloud"
-version = "0.6.0"
-description = "Client local strictement en lecture seule pour les propres données Samsung Health"
+version = "0.7.0"
+description = "Read-only Python client and CLI for Samsung Health Cloud data"
 readme = "README.md"
+authors = [{ name = "Charles Bel" }]
 license = "MIT"
-requires-python = ">=3.12"
-dependencies = ["httpx>=0.28,<0.29"]
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = [
+    "httpx>=0.27,<0.29",
+    "platformdirs>=4.0",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0.0"]
+dev = [
+    "build",
+    "jsonschema>=4.20",
+    "pytest>=8.0",
+    "ruff>=0.8.0",
+    "twine",
+]
 
 [project.scripts]
 samsung-health = "samsung_health_cloud.cli:main"
 samsung-health-cloud = "samsung_health_cloud.cli:main"
+samsung-health-mcp = "samsung_health_cloud.mcp_server:main"
 
-[dependency-groups]
-dev = ["pytest>=8.3,<9"]
+[project.urls]
+Homepage = "https://github.com/charlesbel/samsung-health-cloud"
+Repository = "https://github.com/charlesbel/samsung-health-cloud"
+Issues = "https://github.com/charlesbel/samsung-health-cloud/issues"
+Documentation = "https://github.com/charlesbel/samsung-health-cloud#readme"
 
 [build-system]
 requires = ["hatchling"]
@@ -21,9 +49,39 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/samsung_health_cloud"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"src/samsung_health_cloud/resources/manifests.json" = "samsung_health_cloud/resources/manifests.json"
+"src/samsung_health_cloud/py.typed" = "samsung_health_cloud/py.typed"
+
 [tool.hatch.build.targets.sdist]
-include = ["src", "tests", "docs", "README.md", "pyproject.toml", "uv.lock"]
+include = [
+    "src",
+    "schemas",
+    "tests",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+    "CONTRIBUTING.md",
+    "CHANGELOG.md",
+    "pyproject.toml",
+]
+exclude = [
+    ".agy",
+    ".github",
+    ".skills",
+    "*.sqlite3",
+    "*.jsonl",
+]
 
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "BLE"]
+ignore = ["E501", "UP007", "UP035"]

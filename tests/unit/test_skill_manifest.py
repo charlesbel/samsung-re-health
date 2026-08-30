@@ -1,11 +1,6 @@
 from pathlib import Path
 
-SKILL_PATH = (
-    Path(__file__).parent.parent.parent
-    / ".skills"
-    / "samsung-health-cloud"
-    / "SKILL.md"
-)
+SKILL_PATH = Path(__file__).parent.parent.parent / ".skills" / "samsung-health-cloud" / "SKILL.md"
 
 
 def test_skill_manifest_exists_and_has_valid_frontmatter():

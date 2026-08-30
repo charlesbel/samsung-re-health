@@ -48,16 +48,10 @@ except PackageNotFoundError:
     __version__ = "0.7.0"
 
 DEFAULT_MASTER_STATE = resolve_master_state_path()
-DEFAULT_HEALTH_STATE = (
-    Path(platformdirs.user_state_dir("samsung-health-cloud")) / "state.json"
-)
-DEFAULT_CATALOG = (
-    Path(platformdirs.user_config_dir("samsung-health-cloud")) / "manifests.json"
-)
+DEFAULT_HEALTH_STATE = Path(platformdirs.user_state_dir("samsung-health-cloud")) / "state.json"
+DEFAULT_CATALOG = Path(platformdirs.user_config_dir("samsung-health-cloud")) / "manifests.json"
 DEFAULT_EXPORT_ROOT = Path.home() / "samsung-health-exports"
-DEFAULT_CACHE = (
-    Path(platformdirs.user_data_dir("samsung-health-cloud")) / "health.sqlite3"
-)
+DEFAULT_CACHE = Path(platformdirs.user_data_dir("samsung-health-cloud")) / "health.sqlite3"
 CORE_MANIFEST_IDS = (STEP_DAILY, SLEEP, HEART_RATE, WEIGHT)
 
 
@@ -66,9 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="samsung-health",
         description="Samsung Health Cloud CLI — typed, versioned, strictly read-only client",
     )
-    parser.add_argument(
-        "--version", action="version", version=f"%(prog)s {__version__}"
-    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "--master-state",
         type=Path,
@@ -109,42 +101,26 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser(
-        "init", help="Initialiser ou renouveler la session Health/SCSP"
-    )
-    subparsers.add_parser(
-        "status", help="Afficher la présence et les échéances des jetons"
-    )
-    subparsers.add_parser(
-        "doctor", help="Vérifier les prérequis locaux sans afficher de secret"
-    )
+    subparsers.add_parser("init", help="Initialiser ou renouveler la session Health/SCSP")
+    subparsers.add_parser("status", help="Afficher la présence et les échéances des jetons")
+    subparsers.add_parser("doctor", help="Vérifier les prérequis locaux sans afficher de secret")
 
     manifests = subparsers.add_parser(
         "manifests", help="Consulter le catalogue local des types Samsung Health"
     )
-    manifest_commands = manifests.add_subparsers(
-        dest="manifests_command", required=True
-    )
-    list_parser = manifest_commands.add_parser(
-        "list", help="Lister tous les types connus"
-    )
+    manifest_commands = manifests.add_subparsers(dest="manifests_command", required=True)
+    list_parser = manifest_commands.add_parser("list", help="Lister tous les types connus")
     list_parser.add_argument("--filter", default="")
-    show_parser = manifest_commands.add_parser(
-        "show", help="Afficher les métadonnées d’un type"
-    )
+    show_parser = manifest_commands.add_parser("show", help="Afficher les métadonnées d’un type")
     show_parser.add_argument("manifest_id")
 
-    read_parser = subparsers.add_parser(
-        "read", help="Lire et afficher les documents d’un type"
-    )
+    read_parser = subparsers.add_parser("read", help="Lire et afficher les documents d’un type")
     read_parser.add_argument("manifest_id")
     read_limit = read_parser.add_mutually_exclusive_group()
     read_limit.add_argument("--limit", type=int, default=20)
     read_limit.add_argument("--all", action="store_true")
     read_parser.add_argument("--page-size", type=int, default=200)
-    read_parser.add_argument(
-        "--format", choices=("json", "jsonl", "pretty"), default="json"
-    )
+    read_parser.add_argument("--format", choices=("json", "jsonl", "pretty"), default="json")
     read_parser.add_argument(
         "--e2ee-state", choices=("disabled", "enabled", "none"), default="disabled"
     )
@@ -190,9 +166,7 @@ def build_parser() -> argparse.ArgumentParser:
         ("heart-rate", "Statistiques cardiaques consolidées d’une journée"),
     ):
         report = subparsers.add_parser(name, help=help_text)
-        report.add_argument(
-            "day", nargs="?", help="Date YYYY-MM-DD (aujourd’hui par défaut)"
-        )
+        report.add_argument("day", nargs="?", help="Date YYYY-MM-DD (aujourd’hui par défaut)")
         report.add_argument(
             "--no-sync",
             action="store_true",
@@ -204,9 +178,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-sync", action="store_true", help="Lire immédiatement le cache sans réseau"
     )
 
-    sync = subparsers.add_parser(
-        "sync", help="Actualiser le cache local en arrière-plan"
-    )
+    sync = subparsers.add_parser("sync", help="Actualiser le cache local en arrière-plan")
     sync.add_argument(
         "--days",
         type=int,
@@ -218,12 +190,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Importer tout l’historique des types usuels",
     )
-    sync.add_argument(
-        "--all-types", action="store_true", help="Importer les types du catalogue"
-    )
-    sync.add_argument(
-        "--force", action="store_true", help="Ignorer la fraîcheur du cache"
-    )
+    sync.add_argument("--all-types", action="store_true", help="Importer les types du catalogue")
+    sync.add_argument("--force", action="store_true", help="Ignorer la fraîcheur du cache")
 
     subparsers.add_parser("cache-status", help="État synthétique du cache local")
 
@@ -235,9 +203,7 @@ def build_parser() -> argparse.ArgumentParser:
     data_parser = subparsers.add_parser(
         "data", help="Lire n’importe quel type depuis le miroir universel"
     )
-    data_parser.add_argument(
-        "query", help="Nom humain, suffixe ou identifiant complet du type"
-    )
+    data_parser.add_argument("query", help="Nom humain, suffixe ou identifiant complet du type")
     data_parser.add_argument("--since", help="Début ISO-8601")
     data_parser.add_argument("--until", help="Fin ISO-8601")
     data_parser.add_argument("--limit", type=int, default=100)
@@ -254,9 +220,7 @@ def build_parser() -> argparse.ArgumentParser:
     inventory_parser = subparsers.add_parser(
         "inventory", help="Couverture, champs et contenus annexes du miroir"
     )
-    inventory_parser.add_argument(
-        "query", nargs="?", help="Type précis ; tous les types si absent"
-    )
+    inventory_parser.add_argument("query", nargs="?", help="Type précis ; tous les types si absent")
 
     schema_parser = subparsers.add_parser(
         "schema", help="Sémantique sourcée et couverture de tous les champs observés"
@@ -274,9 +238,7 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument(
         "--latest", action="store_true", help="Analyser le dernier événement pertinent"
     )
-    analyze.add_argument(
-        "--period", choices=("day", "week", "month"), help="Période civile"
-    )
+    analyze.add_argument("--period", choices=("day", "week", "month"), help="Période civile")
     analyze.add_argument("--since", help="Début ISO-8601 explicite")
     analyze.add_argument("--until", help="Fin ISO-8601 explicite")
     analyze.add_argument(
@@ -315,9 +277,7 @@ def _status(store: StateStore) -> dict[str, object]:
 
 def _doctor(args: argparse.Namespace) -> dict[str, object]:
     catalog = CatalogStore(args.catalog).load()
-    usage = shutil.disk_usage(
-        args.state.parent if args.state.parent.exists() else Path.home()
-    )
+    usage = shutil.disk_usage(args.state.parent if args.state.parent.exists() else Path.home())
     return {
         "ok": all(
             (
@@ -354,9 +314,7 @@ def _service(
 def _catalog(client: httpx.Client, args: argparse.Namespace) -> list[ManifestInfo]:
     manifests = CatalogStore(args.catalog).load()
     if not manifests:
-        raise SamsungHealthCloudError(
-            "local Samsung Health manifest catalog is missing"
-        )
+        raise SamsungHealthCloudError("local Samsung Health manifest catalog is missing")
     return manifests
 
 
@@ -386,9 +344,7 @@ def _time_bounds(args: argparse.Namespace) -> tuple[int | None, int | None]:
         else None
     )
     until_ms = (
-        parse_until_ms(args.until, timezone=args.timezone)
-        if getattr(args, "until", None)
-        else None
+        parse_until_ms(args.until, timezone=args.timezone) if getattr(args, "until", None) else None
     )
     if since_ms is not None and until_ms is not None and since_ms > until_ms:
         raise ValueError("since must not be after until")
@@ -483,11 +439,7 @@ def _validate_analysis_options(args: argparse.Namespace, query: str) -> None:
 def _analysis_bounds(args: argparse.Namespace) -> tuple[int, int]:
     if args.all_history:
         return 0, MAX_MS
-    tz = (
-        ZoneInfo(args.timezone)
-        if isinstance(getattr(args, "timezone", None), str)
-        else PARIS
-    )
+    tz = ZoneInfo(args.timezone) if isinstance(getattr(args, "timezone", None), str) else PARIS
     if args.since or args.until:
         since_ms = parse_instant_ms(args.since, timezone=tz) if args.since else 0
         until_ms = parse_until_ms(args.until, timezone=tz) if args.until else MAX_MS
@@ -501,11 +453,7 @@ def _analysis_bounds(args: argparse.Namespace) -> tuple[int, int]:
 def _analysis_report(
     args: argparse.Namespace, cache: HealthCache, manifests: list[ManifestInfo]
 ) -> dict:
-    tz = (
-        ZoneInfo(args.timezone)
-        if isinstance(getattr(args, "timezone", None), str)
-        else PARIS
-    )
+    tz = ZoneInfo(args.timezone) if isinstance(getattr(args, "timezone", None), str) else PARIS
     engine = HealthAnalysisEngine(cache, timezone=tz)
     query = args.query.lower().replace("-", "_")
     _validate_analysis_options(args, query)
@@ -523,9 +471,7 @@ def _analysis_report(
         result = engine.exercise(since_ms, until_ms)
         if args.compare == "previous" and since_ms > 0 and until_ms < MAX_MS:
             width = until_ms - since_ms + 1
-            result["comparison_previous"] = engine.exercise(
-                since_ms - width, until_ms - width
-            )
+            result["comparison_previous"] = engine.exercise(since_ms - width, until_ms - width)
         return result
     manifest = resolve_manifest(manifests, args.query)
     if args.latest:
@@ -540,9 +486,7 @@ def _analysis_report(
     return result
 
 
-def _schema_report(
-    cache: HealthCache, manifests: list[ManifestInfo], query: str | None
-) -> dict:
+def _schema_report(cache: HealthCache, manifests: list[ManifestInfo], query: str | None) -> dict:
     if query:
         manifest = resolve_manifest(manifests, query)
         result = HealthAnalysisEngine(cache).generic(manifest.manifest_id, 0, MAX_MS)
@@ -587,9 +531,7 @@ def _schema_report(
                 "ignored_fields": 0,
             }
         )
-    raw_count = (
-        observed - official_count - convention_count - apk_count - open_source_count
-    )
+    raw_count = observed - official_count - convention_count - apk_count - open_source_count
     return {
         "catalog_manifests": len(manifests),
         "manifests_with_records": manifests_with_records,
@@ -643,9 +585,7 @@ def _export_all(
             summary["total_records"] += res.record_count
         except Exception as exc:  # noqa: BLE001
             summary["failed_manifests"] += 1
-            summary["errors"].append(
-                {"manifest_id": manifest.manifest_id, "error": str(exc)}
-            )
+            summary["errors"].append({"manifest_id": manifest.manifest_id, "error": str(exc)})
             if stop_on_error:
                 break
     summary["error_count"] = len(summary["errors"])
@@ -662,13 +602,9 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
     if args.command == "cache-status":
         cache = HealthCache(args.cache)
         statuses = cache.all_sync_status()
-        unavailable = [
-            item for item in statuses if item["error"] == "unavailable: HTTP 404"
-        ]
+        unavailable = [item for item in statuses if item["error"] == "unavailable: HTTP 404"]
         failures = [
-            item
-            for item in statuses
-            if item["error"] and item["error"] != "unavailable: HTTP 404"
+            item for item in statuses if item["error"] and item["error"] != "unavailable: HTTP 404"
         ]
         return {
             "summary": cache.global_inventory(),
@@ -678,9 +614,7 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
             "failures": failures,
         }, (0 if not failures else 6)
 
-    if args.command in ("types", "inventory", "schema") or getattr(
-        args, "no_sync", False
-    ):
+    if args.command in ("types", "inventory", "schema") or getattr(args, "no_sync", False):
         cache = HealthCache(args.cache)
         manifests = CatalogStore(args.catalog).load()
         if args.command == "types":
@@ -700,16 +634,10 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
         if args.command == "analyze":
             return _analysis_report(args, cache, manifests), 0
         if args.command in ("summary", "steps", "sleep", "heart-rate", "weight"):
-            return _report_from_cache(
-                args.command, cache, getattr(args, "day", None)
-            ), 0
+            return _report_from_cache(args.command, cache, getattr(args, "day", None)), 0
         if args.command == "data":
             manifest = resolve_manifest(manifests, args.query)
-            query_since = (
-                parse_instant_ms(args.since, timezone=args.timezone)
-                if args.since
-                else 0
-            )
+            query_since = parse_instant_ms(args.since, timezone=args.timezone) if args.since else 0
             query_until = (
                 parse_until_ms(args.until, timezone=args.timezone)
                 if args.until
@@ -732,9 +660,7 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
                 "manifest_id": manifest.manifest_id,
                 "offset": args.offset,
                 "count": len(rows),
-                "next_offset": args.offset + len(rows)
-                if len(rows) == args.limit
-                else None,
+                "next_offset": args.offset + len(rows) if len(rows) == args.limit else None,
                 "records": rows,
             }, 0
 
@@ -743,9 +669,7 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
             manifests = _catalog(client, args)
             if args.manifests_command == "list":
                 selected = [
-                    item
-                    for item in manifests
-                    if args.filter.lower() in item.manifest_id.lower()
+                    item for item in manifests if args.filter.lower() in item.manifest_id.lower()
                 ]
                 return [asdict(item) for item in selected], 0
             return asdict(_find_manifest(manifests, args.manifest_id)), 0
@@ -827,11 +751,7 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
                 since_ms=since_ms,
                 until_ms=until_ms,
             )
-            query_since = (
-                parse_instant_ms(args.since, timezone=args.timezone)
-                if args.since
-                else 0
-            )
+            query_since = parse_instant_ms(args.since, timezone=args.timezone) if args.since else 0
             query_until = (
                 parse_until_ms(args.until, timezone=args.timezone)
                 if args.until
@@ -854,9 +774,7 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
                 "manifest_id": manifest.manifest_id,
                 "offset": args.offset,
                 "count": len(rows),
-                "next_offset": args.offset + len(rows)
-                if len(rows) == args.limit
-                else None,
+                "next_offset": args.offset + len(rows) if len(rows) == args.limit else None,
                 "records": rows,
             }, 0
 
@@ -884,12 +802,8 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
                 if args.command != "weight"
                 else datetime.now(PARIS).date()
             )
-            window_start = datetime.combine(
-                day - timedelta(days=1), datetime.min.time(), PARIS
-            )
-            window_end = datetime.combine(
-                day + timedelta(days=1), datetime.min.time(), PARIS
-            )
+            window_start = datetime.combine(day - timedelta(days=1), datetime.min.time(), PARIS)
+            window_end = datetime.combine(day + timedelta(days=1), datetime.min.time(), PARIS)
             selected_ids = {
                 "steps": (STEP_DAILY,),
                 "sleep": (SLEEP,),
@@ -915,18 +829,12 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
                 since_ms=since_ms,
                 until_ms=int(window_end.timestamp() * 1000),
             )
-            return _report_from_cache(
-                args.command, cache, getattr(args, "day", None)
-            ), 0
+            return _report_from_cache(args.command, cache, getattr(args, "day", None)), 0
 
         if args.command == "read":
             manifest = _find_manifest(manifests, args.manifest_id)
             since_ms, until_ms = _time_bounds(args)
-            if (
-                args.page_size < 1
-                or args.page_size > 1000
-                or (not args.all and args.limit < 1)
-            ):
+            if args.page_size < 1 or args.page_size > 1000 or (not args.all and args.limit < 1):
                 raise UsageError("limits must be between 1 and 1000")
             records = data_client.iter_documents(
                 manifest_id=manifest.manifest_id,
@@ -945,9 +853,7 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
         if args.command == "export":
             manifest = _find_manifest(manifests, args.manifest_id)
             since_ms, until_ms = _time_bounds(args)
-            output = args.output or (
-                DEFAULT_EXPORT_ROOT / f"{manifest.manifest_id}.jsonl"
-            )
+            output = args.output or (DEFAULT_EXPORT_ROOT / f"{manifest.manifest_id}.jsonl")
             result = exporter.export_manifest(
                 data_client=data_client,
                 manifest=manifest,

@@ -45,9 +45,7 @@ def test_mcp_read_records_enforces_hard_limit(tmp_path: Path):
 def test_mcp_error_handling_does_not_leak_secrets():
     server = create_mcp_server()
     # Malformed manifest query
-    result = invoke_tool(
-        server, "samsung_health_inventory", {"manifest_id": "../../bad_path"}
-    )
+    result = invoke_tool(server, "samsung_health_inventory", {"manifest_id": "../../bad_path"})
     assert result["ok"] is False
     assert "error" in result
     assert "code" in result["error"]

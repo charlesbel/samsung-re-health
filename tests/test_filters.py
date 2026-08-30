@@ -29,9 +29,7 @@ def test_parse_instant_and_filter_records_by_overlapping_interval():
         },
         {"data": {"create_time": expected + 4000, "count": 3}},
     ]
-    selected = list(
-        filter_records(records, since_ms=expected, until_ms=expected + 2500)
-    )
+    selected = list(filter_records(records, since_ms=expected, until_ms=expected + 2500))
     assert [record["data"]["count"] for record in selected] == [1, 2]
 
     with pytest.raises(ValueError, match="ISO-8601"):

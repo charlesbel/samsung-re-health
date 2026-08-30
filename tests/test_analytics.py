@@ -56,17 +56,13 @@ def test_daily_steps_returns_consolidated_value_not_raw_records(tmp_path: Path):
 
     report = HealthAnalytics(cache).steps(date(2026, 8, 28))
 
-    assert {
-        key: report[key] for key in ("date", "steps", "distance_m", "calories_kcal")
-    } == {
+    assert {key: report[key] for key in ("date", "steps", "distance_m", "calories_kcal")} == {
         "date": "2026-08-28",
         "steps": 5000,
         "distance_m": 4000.0,
         "calories_kcal": 190.0,
     }
-    assert report["calculations"]["record_selection"]["rule"].startswith(
-        "source_type == -2"
-    )
+    assert report["calculations"]["record_selection"]["rule"].startswith("source_type == -2")
 
 
 def test_sleep_merges_overlapping_segments_and_reports_efficiency(tmp_path: Path):
@@ -128,6 +124,4 @@ def test_heart_rate_returns_final_statistics(tmp_path: Path):
         "minimum_bpm": 60.0,
         "maximum_bpm": 90.0,
     }
-    assert report["calculations"]["arithmetic_mean_bpm"]["source_field"].endswith(
-        ".heart_rate"
-    )
+    assert report["calculations"]["arithmetic_mean_bpm"]["source_field"].endswith(".heart_rate")

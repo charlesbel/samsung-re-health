@@ -30,16 +30,8 @@ def test_empty_home_environment_resolves_and_runs_doctor(tmp_path: Path, monkeyp
 
     config = HealthConfig(
         master_state_path=empty_home / ".config" / "samsung-account" / "master.json",
-        state_path=empty_home
-        / ".local"
-        / "state"
-        / "samsung-health-cloud"
-        / "state.json",
-        cache_path=empty_home
-        / ".local"
-        / "share"
-        / "samsung-health-cloud"
-        / "health.sqlite3",
+        state_path=empty_home / ".local" / "state" / "samsung-health-cloud" / "state.json",
+        cache_path=empty_home / ".local" / "share" / "samsung-health-cloud" / "health.sqlite3",
         catalog_path=empty_home / ".config" / "samsung-health-cloud" / "manifests.json",
     )
 

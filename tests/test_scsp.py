@@ -32,9 +32,7 @@ def test_scsp_registers_without_hardware_id_then_issues_redacted_cloud_token():
             },
         )
 
-    profile = DeviceProfile(
-        model_name="SM-S938B", alias="Hermes Read-Only", country_code="FRA"
-    )
+    profile = DeviceProfile(model_name="SM-S938B", alias="Hermes Read-Only", country_code="FRA")
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         identity = ScspIdentity(client, profile=profile)
         registration_id = identity.register(

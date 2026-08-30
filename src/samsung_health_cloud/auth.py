@@ -10,15 +10,12 @@ from urllib.parse import urlparse
 
 import httpx
 
+from .exceptions import SamsungHealthCloudError
+
 HEALTH_CLIENT_ID = "1y90e30264"
 
 
-from .exceptions import SamsungHealthCloudError
-
-
-def safe_http_call(
-    operation: str, call: Callable[[], httpx.Response]
-) -> httpx.Response:
+def safe_http_call(operation: str, call: Callable[[], httpx.Response]) -> httpx.Response:
     response: httpx.Response | None = None
     failed = False
     try:
@@ -65,9 +62,7 @@ class HealthAuth:
         physical_address: str | None = None,
     ) -> HealthToken:
         verifier = verifier or secrets.token_urlsafe(64)
-        physical_address = (
-            physical_address or base64.b64encode(secrets.token_bytes(18)).decode()
-        )
+        physical_address = physical_address or base64.b64encode(secrets.token_bytes(18)).decode()
         challenge = (
             base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
             .decode()
@@ -102,16 +97,9 @@ class HealthAuth:
         payload = self._json(response, "authorize")
         code = payload.get("code")
         auth_data = payload.get("auth_data")
-        response_user_id = (
-            auth_data.get("userId") if isinstance(auth_data, dict) else None
-        )
+        response_user_id = auth_data.get("userId") if isinstance(auth_data, dict) else None
         user_id = response_user_id or user_id
-        if (
-            not isinstance(code, str)
-            or not code
-            or not isinstance(user_id, str)
-            or not user_id
-        ):
+        if not isinstance(code, str) or not code or not isinstance(user_id, str) or not user_id:
             raise SamsungHealthCloudError("authorize response missing code or user id")
 
         response = safe_http_call(
@@ -140,16 +128,12 @@ class HealthAuth:
                 token_type=str(token_payload.get("token_type", "bearer")),
             )
         except (KeyError, TypeError, ValueError) as exc:
-            raise SamsungHealthCloudError(
-                "token response missing expected fields"
-            ) from exc
+            raise SamsungHealthCloudError("token response missing expected fields") from exc
 
     @staticmethod
     def _json(response: httpx.Response, operation: str) -> dict[str, Any]:
         if response.status_code != 200:
-            raise SamsungHealthCloudError(
-                f"{operation} failed with HTTP {response.status_code}"
-            )
+            raise SamsungHealthCloudError(f"{operation} failed with HTTP {response.status_code}")
         try:
             payload = response.json()
         except ValueError as exc:

@@ -34,9 +34,7 @@ class SamsungHealthLocalClient:
         self.config = config or HealthConfig()
         self._cache = HealthCache(self.config.cache_path)
         self._catalog_store = CatalogStore(self.config.catalog_path)
-        self._analysis_engine = HealthAnalysisEngine(
-            self._cache, timezone=self.config.timezone
-        )
+        self._analysis_engine = HealthAnalysisEngine(self._cache, timezone=self.config.timezone)
         self._analytics = HealthAnalytics(self._cache, timezone=self.config.timezone)
 
     def __enter__(self) -> Self:
@@ -226,24 +224,18 @@ class SamsungHealthLocalClient:
             res = self._analysis_engine.exercise(since_ms=s, until_ms=u)
             if compare == "previous":
                 prev_s, prev_u = period_bounds(sel_period, today, offset=-1)
-                prev_res = self._analysis_engine.exercise(
-                    since_ms=prev_s, until_ms=prev_u
-                )
+                prev_res = self._analysis_engine.exercise(since_ms=prev_s, until_ms=prev_u)
                 res["comparison"] = {"previous_period": prev_res}
             return res
 
         # Generic manifest analysis
         resolved = resolve_manifest(manifests, health_type)
         if compare:
-            raise UsageError(
-                f"compare is not supported for generic type '{health_type}'"
-            )
+            raise UsageError(f"compare is not supported for generic type '{health_type}'")
         if latest:
             return self._analysis_engine.generic_latest(resolved.manifest_id)
         if all_history:
-            return self._analysis_engine.generic(
-                resolved.manifest_id, 0, 9_223_372_036_854_775_807
-            )
+            return self._analysis_engine.generic(resolved.manifest_id, 0, 9_223_372_036_854_775_807)
         if since or until:
             return self._analysis_engine.generic(
                 resolved.manifest_id,
@@ -332,14 +324,11 @@ class SamsungHealthClient(SamsungHealthLocalClient):
             "health_refresh_token_present": bool(state.health_refresh_token),
             "health_refresh_expires_at": state.health_refresh_expires_at,
             "health_refresh_expired": bool(
-                state.health_refresh_expires_at
-                and state.health_refresh_expires_at <= now
+                state.health_refresh_expires_at and state.health_refresh_expires_at <= now
             ),
             "cloud_token_present": bool(state.cloud_token),
             "cloud_expires_at": state.cloud_expires_at,
-            "cloud_token_expired": bool(
-                state.cloud_expires_at and state.cloud_expires_at <= now
-            ),
+            "cloud_token_expired": bool(state.cloud_expires_at and state.cloud_expires_at <= now),
             "user_id_present": bool(state.user_id),
             "cdid_present": bool(state.cdid),
             "registration_id_present": bool(state.registration_id),
@@ -374,9 +363,7 @@ class SamsungHealthClient(SamsungHealthLocalClient):
                 "com.samsung.health.exercise",
                 "com.samsung.health.weight",
             }
-            target_manifests = [
-                m for m in manifests if m.manifest_id in core_ids
-            ] or manifests
+            target_manifests = [m for m in manifests if m.manifest_id in core_ids] or manifests
 
         data_client = CloudDataClient(self._http_client)
         syncer = CacheSynchronizer(self._cache, data_client)

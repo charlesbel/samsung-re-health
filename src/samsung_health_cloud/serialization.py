@@ -38,9 +38,7 @@ def redact_secrets(data: Any) -> Any:
                     "credential",
                 )
             ):
-                result[key] = (
-                    "<redacted>" if isinstance(value, str) and value else value
-                )
+                result[key] = "<redacted>" if isinstance(value, str) and value else value
             else:
                 result[key] = redact_secrets(value)
         return result

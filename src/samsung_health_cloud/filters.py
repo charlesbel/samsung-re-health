@@ -23,9 +23,7 @@ def parse_until_ms(value: str, *, timezone: str | ZoneInfo = "UTC") -> int:
     if len(value) == 10:
         try:
             end_of_day = (
-                datetime.fromisoformat(value)
-                + timedelta(days=1)
-                - timedelta(milliseconds=1)
+                datetime.fromisoformat(value) + timedelta(days=1) - timedelta(milliseconds=1)
             )
         except ValueError as exc:
             raise ValueError("time filters must use ISO-8601") from exc

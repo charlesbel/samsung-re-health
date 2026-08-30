@@ -27,9 +27,7 @@ def test_mcp_analyze_tool_against_local_cache(tmp_path: Path):
     config = HealthConfig(cache_path=db_path)
     server = create_mcp_server(config=config)
 
-    res = invoke_tool(
-        server, "samsung_health_analyze", {"health_type": "sleep", "latest": True}
-    )
+    res = invoke_tool(server, "samsung_health_analyze", {"health_type": "sleep", "latest": True})
     assert res["ok"] is True
     assert res["data"]["available"] is True
     assert res["data"]["reported_efficiency_percent"] == 85

@@ -363,9 +363,7 @@ def invoke_tool(
     except SamsungHealthError as exc:
         return error_envelope("health_error", str(exc))
     except Exception as exc:  # noqa: BLE001
-        return error_envelope(
-            "internal_error", f"{type(exc).__name__}: execution failed"
-        )
+        return error_envelope("internal_error", f"{type(exc).__name__}: execution failed")
 
 
 def run_stdio_server(server: SamsungHealthMcpServer | None = None) -> int:
@@ -429,9 +427,7 @@ def run_stdio_server(server: SamsungHealthMcpServer | None = None) -> int:
                             "content": [
                                 {
                                     "type": "text",
-                                    "text": json.dumps(
-                                        tool_res["data"], indent=2, sort_keys=True
-                                    ),
+                                    "text": json.dumps(tool_res["data"], indent=2, sort_keys=True),
                                 }
                             ]
                         },
@@ -490,9 +486,7 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Override path to master credentials",
     )
-    parser.add_argument(
-        "--state", type=Path, default=None, help="Override path to session state"
-    )
+    parser.add_argument("--state", type=Path, default=None, help="Override path to session state")
     parser.add_argument(
         "--catalog", type=Path, default=None, help="Override path to manifests catalog"
     )
@@ -507,9 +501,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--no-records", action="store_true", help="Disable raw record retrieval tool"
     )
-    parser.add_argument(
-        "--no-sync", action="store_true", help="Disable cloud synchronization tool"
-    )
+    parser.add_argument("--no-sync", action="store_true", help="Disable cloud synchronization tool")
 
     args = parser.parse_args(argv)
 

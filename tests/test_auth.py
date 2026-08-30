@@ -65,9 +65,7 @@ def test_health_auth_detaches_sensitive_httpx_exception():
 
     with (
         httpx.Client(transport=httpx.MockTransport(handler)) as client,
-        pytest.raises(
-            SamsungHealthCloudError, match="network request failed"
-        ) as captured,
+        pytest.raises(SamsungHealthCloudError, match="network request failed") as captured,
     ):
         HealthAuth(client).issue(
             auth_server_url="https://eu-auth2.samsungosp.com",

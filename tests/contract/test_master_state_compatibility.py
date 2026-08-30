@@ -60,9 +60,7 @@ def test_load_master_credentials_rejects_symlink(tmp_path: Path):
 
 def test_load_master_credentials_rejects_permissive_mode(tmp_path: Path):
     target = tmp_path / "master.json"
-    target.write_text(
-        (FIXTURES_DIR / "master-state-v1.synthetic.json").read_text(encoding="utf-8")
-    )
+    target.write_text((FIXTURES_DIR / "master-state-v1.synthetic.json").read_text(encoding="utf-8"))
     target.chmod(0o666)
 
     with pytest.raises(SamsungHealthCloudError, match="permissions"):
@@ -72,9 +70,7 @@ def test_load_master_credentials_rejects_permissive_mode(tmp_path: Path):
 def test_load_master_credentials_rejects_untrusted_authority(tmp_path: Path):
     target = tmp_path / "master.json"
     target.write_text(
-        (FIXTURES_DIR / "master-state-v1.invalid-authority.json").read_text(
-            encoding="utf-8"
-        )
+        (FIXTURES_DIR / "master-state-v1.invalid-authority.json").read_text(encoding="utf-8")
     )
     target.chmod(0o600)
 

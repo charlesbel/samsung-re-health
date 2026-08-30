@@ -106,13 +106,9 @@ class JsonlExporter:
                 raise SamsungHealthCloudError("export output must not be a symlink")
             final_hash = state.get("final_sha256")
             if not isinstance(final_hash, str) or len(final_hash) != 64:
-                raise SamsungHealthCloudError(
-                    "export checkpoint is missing final integrity data"
-                )
+                raise SamsungHealthCloudError("export checkpoint is missing final integrity data")
             if not output_path.exists() or self._sha256_file(output_path) != final_hash:
-                rebuilt_hash = self._assemble(
-                    page_dir, output_path, page_index, page_hashes
-                )
+                rebuilt_hash = self._assemble(page_dir, output_path, page_index, page_hashes)
                 state["final_sha256"] = rebuilt_hash
                 self._save_json(state_path, state)
             return ExportResult(output_path, record_count, page_index)
@@ -123,38 +119,26 @@ class JsonlExporter:
             schema_revision=manifest.schema_revision,
             cloud_authorization=cloud_authorization,
             page_size=page_size,
-            start_page_token=start_page_token
-            if isinstance(start_page_token, str)
-            else None,
+            start_page_token=start_page_token if isinstance(start_page_token, str) else None,
             e2ee_state=e2ee_state,
             start_time=since_ms,
             end_time=until_ms,
         ):
             raw_documents = payload.get("documents")
             if not isinstance(raw_documents, list):
-                raise SamsungHealthCloudError(
-                    "export page is missing its documents list"
-                )
-            documents = list(
-                filter_records(raw_documents, since_ms=since_ms, until_ms=until_ms)
-            )
+                raise SamsungHealthCloudError("export page is missing its documents list")
+            documents = list(filter_records(raw_documents, since_ms=since_ms, until_ms=until_ms))
             page_path = page_dir / f"{page_index:08d}.jsonl"
             page_hash = self._save_jsonl(page_path, documents)
             if len(page_hashes) != page_index:
-                raise SamsungHealthCloudError(
-                    "export checkpoint page index is inconsistent"
-                )
+                raise SamsungHealthCloudError("export checkpoint page index is inconsistent")
             page_hashes.append(page_hash)
             record_count += len(documents)
             page_index += 1
             has_next = payload.get("hasNext") is True
             next_page_token = payload.get("nextPageToken") if has_next else None
-            if has_next and (
-                not isinstance(next_page_token, str) or not next_page_token
-            ):
-                raise SamsungHealthCloudError(
-                    "export page is missing its next page token"
-                )
+            if has_next and (not isinstance(next_page_token, str) or not next_page_token):
+                raise SamsungHealthCloudError("export page is missing its next page token")
             state.update(
                 {
                     "next_page_token": next_page_token,
@@ -171,9 +155,7 @@ class JsonlExporter:
         if state.get("complete") is not True:
             raise SamsungHealthCloudError("export stopped before the final page")
         self._validate_pages(page_dir, page_index, page_hashes)
-        state["final_sha256"] = self._assemble(
-            page_dir, output_path, page_index, page_hashes
-        )
+        state["final_sha256"] = self._assemble(page_dir, output_path, page_index, page_hashes)
         self._save_json(state_path, state)
         return ExportResult(output_path, record_count, page_index)
 
@@ -197,9 +179,7 @@ class JsonlExporter:
             state.get("e2ee_state") == e2ee_state,
         )
         if not all(identity):
-            raise SamsungHealthCloudError(
-                "export checkpoint does not match the requested export"
-            )
+            raise SamsungHealthCloudError("export checkpoint does not match the requested export")
         page_index = state.get("page_index")
         record_count = state.get("record_count")
         hashes = state.get("page_hashes")
@@ -217,9 +197,7 @@ class JsonlExporter:
         ):
             raise SamsungHealthCloudError("invalid export checkpoint")
         next_token = state.get("next_page_token")
-        if next_token is not None and (
-            not isinstance(next_token, str) or not next_token
-        ):
+        if next_token is not None and (not isinstance(next_token, str) or not next_token):
             raise SamsungHealthCloudError("invalid export checkpoint")
 
     @staticmethod
@@ -240,9 +218,9 @@ class JsonlExporter:
     def _save_json(path: Path, payload: dict[str, Any]) -> str:
         return JsonlExporter._atomic_write(
             path,
-            (
-                json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-            ).encode("utf-8"),
+            (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
+                "utf-8"
+            ),
         )
 
     @staticmethod
@@ -273,9 +251,7 @@ class JsonlExporter:
         return hashlib.sha256(content).hexdigest()
 
     @staticmethod
-    def _validate_pages(
-        page_dir: Path, page_count: int, page_hashes: list[str]
-    ) -> None:
+    def _validate_pages(page_dir: Path, page_count: int, page_hashes: list[str]) -> None:
         expected = {f"{index:08d}.jsonl" for index in range(page_count)}
         actual = {path.name for path in page_dir.glob("*.jsonl")}
         unexpected = actual - expected
@@ -335,12 +311,7 @@ class JsonlExporter:
     @contextmanager
     def _locked(output_path: Path):
         lock_path = output_path.with_name(f".{output_path.name}.lock")
-        flags = (
-            os.O_CREAT
-            | os.O_RDWR
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
-        )
+        flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
         try:
             fd = os.open(lock_path, flags, 0o600)
         except OSError as exc:

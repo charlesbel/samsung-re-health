@@ -33,9 +33,7 @@ class FakeHealthAuth:
         assert kwargs["login_id"] == "person@example.com"
         assert kwargs["physical_address"] == "physical-id"
         assert kwargs["auth_server_url"] == "https://eu-auth2.samsungosp.com"
-        return HealthToken(
-            "health-secret", "refresh-secret", "uid-1", 100, 200, "bearer"
-        )
+        return HealthToken("health-secret", "refresh-secret", "uid-1", 100, 200, "bearer")
 
 
 class FakeScsp:
@@ -64,9 +62,7 @@ def test_service_initializes_from_samsung_find_state_without_exposing_master(tmp
     credentials = load_master_credentials(master_path)
     assert "master-secret" not in repr(credentials)
     assert "person@example.com" not in repr(credentials)
-    assert "uid-1" not in repr(
-        HealthToken("access", "refresh", "uid-1", 1, 2, "bearer")
-    )
+    assert "uid-1" not in repr(HealthToken("access", "refresh", "uid-1", 1, 2, "bearer"))
 
     store = AssertingLockedStore(tmp_path / "health-state.json")
     service = SamsungHealthService(

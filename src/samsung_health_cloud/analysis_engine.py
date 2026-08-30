@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 from statistics import fmean, pstdev, stdev
@@ -43,9 +44,7 @@ def _is_sensitive_field(key: str) -> bool:
     )
 
 
-def _field_summary(
-    manifest_id: str, key: str, observed: list[object], record_count: int
-) -> dict:
+def _field_summary(manifest_id: str, key: str, observed: list[object], record_count: int) -> dict:
     non_null = [value for value in observed if value is not None]
     type_names = sorted({type(value).__name__ for value in non_null})
     numeric = [
@@ -56,19 +55,15 @@ def _field_summary(
     statistics: dict[str, object]
     if _is_sensitive_field(key):
         statistics = {"count": len(non_null), "values_redacted": True}
-        try:
+        with contextlib.suppress(TypeError):
             statistics["unique_count"] = len(set(non_null))
-        except TypeError:
-            pass
     elif numeric and len(numeric) == len(non_null):
         statistics = {
             "count": len(numeric),
             "sum": _round(sum(numeric)),
             "mean": _round(fmean(numeric)),
             "population_standard_deviation": _round(pstdev(numeric)),
-            "sample_standard_deviation": _round(stdev(numeric))
-            if len(numeric) > 1
-            else None,
+            "sample_standard_deviation": _round(stdev(numeric)) if len(numeric) > 1 else None,
             "minimum": _round(min(numeric)),
             "maximum": _round(max(numeric)),
             "latest": _round(numeric[-1]),
@@ -88,9 +83,7 @@ def _field_summary(
     elif non_null and all(isinstance(value, dict) for value in non_null):
         statistics = {
             "count": len(non_null),
-            "object_keys": sorted(
-                {nested_key for value in non_null for nested_key in value}
-            ),
+            "object_keys": sorted({nested_key for value in non_null for nested_key in value}),
         }
     elif non_null and all(isinstance(value, list) for value in non_null):
         statistics = {
@@ -134,16 +127,10 @@ def _field_summary(
         elif "max_length" in documented:
             checked = [value for value in non_null if isinstance(value, str)]
             checked_count = len(checked)
-            violation_count = sum(
-                len(value) > documented["max_length"] for value in checked
-            )
+            violation_count = sum(len(value) > documented["max_length"] for value in checked)
             validation_rule = {"maximum_length": documented["max_length"]}
         elif "enum" in documented and documented.get("enum_exhaustive", True):
-            checked = [
-                value
-                for value in non_null
-                if isinstance(value, (str, int, float, bool))
-            ]
+            checked = [value for value in non_null if isinstance(value, (str, int, float, bool))]
             checked_count = len(checked)
             violation_count = sum(value not in documented["enum"] for value in checked)
             validation_rule = {"allowed_values": sorted(documented["enum"])}
@@ -180,9 +167,7 @@ def summarize_generic(manifest_id: str, records: list[dict]) -> dict:
     status_counts: dict[str, int] = defaultdict(int)
     for field in fields.values():
         status_counts[field["provenance"]["status"]] += 1
-    validations = [
-        field["validation"] for field in fields.values() if "validation" in field
-    ]
+    validations = [field["validation"] for field in fields.values() if "validation" in field]
     relationship_validation = []
     start_semantics = field_semantics(manifest_id, "start_time")
     end_semantics = field_semantics(manifest_id, "end_time")
@@ -226,9 +211,7 @@ def summarize_generic(manifest_id: str, records: list[dict]) -> dict:
             "ignored_fields": [],
             "coverage_percent": 100.0,
             "officially_documented_fields": status_counts["official_documentation"],
-            "official_schema_convention_fields": status_counts[
-                "official_schema_convention"
-            ],
+            "official_schema_convention_fields": status_counts["official_schema_convention"],
             "apk_documented_fields": status_counts["apk_decompiled"],
             "open_source_documented_fields": status_counts["open_source"],
             "raw_observed_fields": status_counts["raw_observed"],
@@ -240,9 +223,7 @@ def summarize_generic(manifest_id: str, records: list[dict]) -> dict:
                     item["status"] == "no_encoded_rule" for item in validations
                 ),
                 "checked_values": sum(item["checked_count"] for item in validations),
-                "unchecked_values": sum(
-                    item["unchecked_count"] for item in validations
-                ),
+                "unchecked_values": sum(item["unchecked_count"] for item in validations),
                 "violation_count": sum(item["violation_count"] for item in validations),
                 "relationship_rules": relationship_validation,
             },
@@ -279,11 +260,7 @@ def period_bounds(
         next_year = year + 1 if month == 12 else year
         end = datetime(next_year, next_month, 1, tzinfo=target_tz)
     else:
-        start_day = (
-            anchor_date
-            - timedelta(days=anchor_date.weekday())
-            + timedelta(weeks=offset)
-        )
+        start_day = anchor_date - timedelta(days=anchor_date.weekday()) + timedelta(weeks=offset)
         start = datetime.combine(start_day, time.min, target_tz)
         end = start + timedelta(days=7)
     return int(start.timestamp() * 1000), int(end.timestamp() * 1000) - 1
@@ -294,9 +271,7 @@ def _period_week(day: date, tz: ZoneInfo | None = None) -> tuple[int, int]:
 
 
 class HealthAnalysisEngine:
-    def __init__(
-        self, cache: HealthCache, *, timezone: str | ZoneInfo = "Europe/Paris"
-    ):
+    def __init__(self, cache: HealthCache, *, timezone: str | ZoneInfo = "Europe/Paris"):
         self.cache = cache
         self.tz = ZoneInfo(timezone) if isinstance(timezone, str) else timezone
 
@@ -312,18 +287,14 @@ class HealthAnalysisEngine:
             return summarize_generic(manifest_id, [])
         latest = max(
             rows,
-            key=lambda row: row.get(
-                "end_time", row.get("start_time", row.get("update_time", 0))
-            ),
+            key=lambda row: row.get("end_time", row.get("start_time", row.get("update_time", 0))),
         )
         result = summarize_generic(manifest_id, [latest])
         result["event"] = "latest"
         return result
 
     def sleep_latest(self) -> dict:
-        source_records = self.cache.records(
-            "com.samsung.health.sleep", since_ms=0, until_ms=MAX_MS
-        )
+        source_records = self.cache.records("com.samsung.health.sleep", since_ms=0, until_ms=MAX_MS)
         if not source_records:
             return {
                 "analysis": "sleep",
@@ -391,16 +362,11 @@ class HealthAnalysisEngine:
         merged_stage_intervals: list[list[float]] = []
         stage_interval_overlap_count = 0
         for _, _, interval_start, interval_end in ordered:
-            if (
-                not merged_stage_intervals
-                or interval_start >= merged_stage_intervals[-1][1]
-            ):
+            if not merged_stage_intervals or interval_start >= merged_stage_intervals[-1][1]:
                 merged_stage_intervals.append([interval_start, interval_end])
             else:
                 stage_interval_overlap_count += 1
-                merged_stage_intervals[-1][1] = max(
-                    merged_stage_intervals[-1][1], interval_end
-                )
+                merged_stage_intervals[-1][1] = max(merged_stage_intervals[-1][1], interval_end)
         covered_stage_minutes = (
             sum(
                 interval_end - interval_start
@@ -409,9 +375,7 @@ class HealthAnalysisEngine:
             / 60_000
         )
 
-        heart = self.cache.records(
-            "com.samsung.health.heart_rate", since_ms=start, until_ms=end
-        )
+        heart = self.cache.records("com.samsung.health.heart_rate", since_ms=start, until_ms=end)
         heart_values = [
             float(row["heart_rate"])
             for row in heart
@@ -421,9 +385,7 @@ class HealthAnalysisEngine:
             "com.samsung.health.oxygen_saturation", since_ms=start, until_ms=end
         )
         oxygen_values = [
-            float(row["spo2"])
-            for row in oxygen_rows
-            if isinstance(row.get("spo2"), (int, float))
+            float(row["spo2"]) for row in oxygen_rows if isinstance(row.get("spo2"), (int, float))
         ]
         snores = self.cache.records(
             "com.samsung.shealth.sleep_snoring", since_ms=start, until_ms=end
@@ -436,12 +398,8 @@ class HealthAnalysisEngine:
         )[:7]
         baseline = {"source_records": 0}
         if previous_source_records:
-            baseline_start = min(
-                int(row.get("start_time", 0)) for row in previous_source_records
-            )
-            baseline_end = max(
-                int(row.get("end_time", 0)) for row in previous_source_records
-            )
+            baseline_start = min(int(row.get("start_time", 0)) for row in previous_source_records)
+            baseline_end = max(int(row.get("end_time", 0)) for row in previous_source_records)
             prior_stages = self.cache.records(
                 "com.samsung.health.sleep_stage",
                 since_ms=baseline_start,
@@ -455,15 +413,12 @@ class HealthAnalysisEngine:
                     40004,
                 }:
                     asleep_by_id[str(row.get("sleep_id"))] += (
-                        max(0, row.get("end_time", 0) - row.get("start_time", 0))
-                        / 60_000
+                        max(0, row.get("end_time", 0) - row.get("start_time", 0)) / 60_000
                     )
             prior_asleep = []
             prior_efficiency = []
             for row in previous_source_records:
-                value = asleep_by_id.get(
-                    str(row.get("datauuid") or row.get("sleep_id")), 0
-                )
+                value = asleep_by_id.get(str(row.get("datauuid") or row.get("sleep_id")), 0)
                 bed = max(0, row.get("end_time", 0) - row.get("start_time", 0)) / 60_000
                 if value:
                     prior_asleep.append(value)
@@ -480,9 +435,7 @@ class HealthAnalysisEngine:
                 )
                 if prior_efficiency
                 else None,
-                "difference_from_record_mean_asleep_minutes": round(
-                    asleep - fmean(prior_asleep), 1
-                )
+                "difference_from_record_mean_asleep_minutes": round(asleep - fmean(prior_asleep), 1)
                 if prior_asleep
                 else None,
             }
@@ -495,27 +448,23 @@ class HealthAnalysisEngine:
             "com.samsung.shealth.sleep_snoring": snores,
         }
         field_analysis = {
-            manifest: summarize_generic(manifest, rows)
-            for manifest, rows in sources.items()
+            manifest: summarize_generic(manifest, rows) for manifest, rows in sources.items()
         }
         observed_field_count = sum(
             item["coverage"]["observed_fields"] for item in field_analysis.values()
         )
         official_field_count = sum(
-            item["coverage"]["officially_documented_fields"]
-            for item in field_analysis.values()
+            item["coverage"]["officially_documented_fields"] for item in field_analysis.values()
         )
         convention_field_count = sum(
             item["coverage"]["official_schema_convention_fields"]
             for item in field_analysis.values()
         )
         apk_field_count = sum(
-            item["coverage"]["apk_documented_fields"]
-            for item in field_analysis.values()
+            item["coverage"]["apk_documented_fields"] for item in field_analysis.values()
         )
         open_source_field_count = sum(
-            item["coverage"]["open_source_documented_fields"]
-            for item in field_analysis.values()
+            item["coverage"]["open_source_documented_fields"] for item in field_analysis.values()
         )
         return {
             "analysis": "sleep",
@@ -527,9 +476,7 @@ class HealthAnalysisEngine:
             "reported_efficiency_percent": source_record.get("efficiency")
             if isinstance(source_record.get("efficiency"), (int, float))
             else None,
-            "derived_stage_coverage_percent": round(
-                100 * covered_stage_minutes / in_bed, 1
-            )
+            "derived_stage_coverage_percent": round(100 * covered_stage_minutes / in_bed, 1)
             if in_bed
             else None,
             "stages_minutes": minutes,
@@ -566,9 +513,7 @@ class HealthAnalysisEngine:
             "snoring": {"source_records": len(snores)},
             "baseline_previous_source_records": baseline,
             "joins": {
-                "sleep_stages": {
-                    "join_kind": "sleep_id_when_available_plus_time_window"
-                },
+                "sleep_stages": {"join_kind": "sleep_id_when_available_plus_time_window"},
                 "heart_rate": {
                     "join_kind": "time_window_only",
                     "meaning": "temporally concomitant measurements",
@@ -688,9 +633,7 @@ class HealthAnalysisEngine:
         rows = self.cache.records(
             "com.samsung.shealth.step_daily_trend", since_ms=since_ms, until_ms=until_ms
         )
-        observed_days = {
-            int(row.get("day_time", row.get("start_time", 0))) for row in rows
-        }
+        observed_days = {int(row.get("day_time", row.get("start_time", 0))) for row in rows}
         by_day: dict[int, dict] = {}
         for row in rows:
             day = int(row.get("day_time", row.get("start_time", 0)))
@@ -708,9 +651,7 @@ class HealthAnalysisEngine:
                 sum(float(row.get("distance", 0)) for row in by_day.values()) / 1000, 3
             ),
             "steps": int(sum(float(row.get("count", 0)) for row in by_day.values())),
-            "calories_kcal": round(
-                sum(float(row.get("calorie", 0)) for row in by_day.values()), 1
-            ),
+            "calories_kcal": round(sum(float(row.get("calorie", 0)) for row in by_day.values()), 1),
             "calculations": {
                 "daily_selection": {
                     "kind": "official_aggregation_selection",
@@ -722,9 +663,7 @@ class HealthAnalysisEngine:
                     "formula": "sum selected daily all-sources records",
                 },
             },
-            "field_analysis": summarize_generic(
-                "com.samsung.shealth.step_daily_trend", rows
-            ),
+            "field_analysis": summarize_generic("com.samsung.shealth.step_daily_trend", rows),
         }
 
     def activity_interval(
@@ -795,18 +734,13 @@ class HealthAnalysisEngine:
             "duration_minutes": round(
                 sum(float(row.get("duration", 0)) for row in rows) / 60_000, 1
             ),
-            "distance_km": round(
-                sum(float(row.get("distance", 0)) for row in rows) / 1000, 3
-            ),
-            "calories_kcal": round(
-                sum(float(row.get("calorie", 0)) for row in rows), 1
-            ),
+            "distance_km": round(sum(float(row.get("distance", 0)) for row in rows) / 1000, 3),
+            "calories_kcal": round(sum(float(row.get("calorie", 0)) for row in rows), 1),
             "heart_rate": (
                 {
                     "events_with_heart_rate": len(weighted),
                     "duration_weighted_mean_bpm": round(
-                        sum(value * weight for value, weight in weighted)
-                        / total_weight,
+                        sum(value * weight for value, weight in weighted) / total_weight,
                         1,
                     ),
                     "minimum_bpm": min(mins) if mins else None,

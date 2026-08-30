@@ -31,17 +31,11 @@ class MasterCredentials:
 def _validate_auth_url(url: str) -> str:
     parsed = urlparse(url)
     if parsed.scheme != "https":
-        raise SamsungHealthCloudError(
-            "invalid Samsung auth server authority: must be HTTPS"
-        )
+        raise SamsungHealthCloudError("invalid Samsung auth server authority: must be HTTPS")
     if not parsed.hostname:
-        raise SamsungHealthCloudError(
-            "invalid Samsung auth server authority: missing hostname"
-        )
+        raise SamsungHealthCloudError("invalid Samsung auth server authority: missing hostname")
     if parsed.username or parsed.password:
-        raise SamsungHealthCloudError(
-            "invalid Samsung auth server authority: userinfo forbidden"
-        )
+        raise SamsungHealthCloudError("invalid Samsung auth server authority: userinfo forbidden")
     hostname = parsed.hostname.lower()
     if not any(
         hostname == suffix or hostname.endswith(f".{suffix}")
@@ -68,14 +62,8 @@ def load_master_credentials(path: Path) -> MasterCredentials:
         raise SamsungHealthCloudError("Samsung master state has an unexpected owner")
 
     # On POSIX systems, ensure group and others have no permissions
-    if (
-        hasattr(stat, "S_IMODE")
-        and os.name != "nt"
-        and stat.S_IMODE(file_stat.st_mode) & 0o077
-    ):
-        raise SamsungHealthCloudError(
-            "Samsung master state permissions must be private"
-        )
+    if hasattr(stat, "S_IMODE") and os.name != "nt" and stat.S_IMODE(file_stat.st_mode) & 0o077:
+        raise SamsungHealthCloudError("Samsung master state permissions must be private")
 
     try:
         content = path.read_text(encoding="utf-8")
@@ -97,17 +85,11 @@ def load_master_credentials(path: Path) -> MasterCredentials:
                 f"unsupported Samsung master state schema version: {version}"
             )
 
-        account = (
-            payload.get("account") if isinstance(payload.get("account"), dict) else {}
-        )
+        account = payload.get("account") if isinstance(payload.get("account"), dict) else {}
         installation = (
-            payload.get("installation")
-            if isinstance(payload.get("installation"), dict)
-            else {}
+            payload.get("installation") if isinstance(payload.get("installation"), dict) else {}
         )
-        identity = (
-            payload.get("identity") if isinstance(payload.get("identity"), dict) else {}
-        )
+        identity = payload.get("identity") if isinstance(payload.get("identity"), dict) else {}
 
         token = identity.get("userauth_token")
         login_id = account.get("login_id")
@@ -118,9 +100,7 @@ def load_master_credentials(path: Path) -> MasterCredentials:
 
         required = (token, login_id, physical_address, auth_server_url, generation)
         if not all(isinstance(val, str) and val for val in required):
-            raise SamsungHealthCloudError(
-                "Samsung master state v1 is missing required fields"
-            )
+            raise SamsungHealthCloudError("Samsung master state v1 is missing required fields")
 
         _validate_auth_url(auth_server_url)
 

@@ -133,15 +133,9 @@ SEMANTICS: dict[tuple[str, str], dict] = {
     ("com.samsung.health.sleep", "factor_03"): _apk(
         "First-cycle awake score factor", APK_SCORE_MAPPING
     ),
-    ("com.samsung.health.sleep", "factor_04"): _apk(
-        "Awake-in-REM score factor", APK_SCORE_MAPPING
-    ),
-    ("com.samsung.health.sleep", "factor_05"): _apk(
-        "Total-awake score factor", APK_SCORE_MAPPING
-    ),
-    ("com.samsung.health.sleep", "factor_06"): _apk(
-        "Sleep-time score factor", APK_SCORE_MAPPING
-    ),
+    ("com.samsung.health.sleep", "factor_04"): _apk("Awake-in-REM score factor", APK_SCORE_MAPPING),
+    ("com.samsung.health.sleep", "factor_05"): _apk("Total-awake score factor", APK_SCORE_MAPPING),
+    ("com.samsung.health.sleep", "factor_06"): _apk("Sleep-time score factor", APK_SCORE_MAPPING),
     ("com.samsung.health.sleep", "factor_07"): _apk(
         "First-cycle-duration score factor", APK_SCORE_MAPPING
     ),
@@ -163,9 +157,7 @@ SEMANTICS: dict[tuple[str, str], dict] = {
     ("com.samsung.health.sleep", "deep_score"): _apk(
         "Deep-sleep component score", APK_SCORE_MAPPING
     ),
-    ("com.samsung.health.sleep", "rem_score"): _apk(
-        "REM component score", APK_SCORE_MAPPING
-    ),
+    ("com.samsung.health.sleep", "rem_score"): _apk("REM component score", APK_SCORE_MAPPING),
     ("com.samsung.health.sleep", "wake_score"): _apk(
         "Awake/restfulness component score", APK_SCORE_MAPPING
     ),
@@ -175,12 +167,8 @@ SEMANTICS: dict[tuple[str, str], dict] = {
     ("com.samsung.health.sleep", "total_sleep_time_score"): _apk(
         "Total-sleep-time component score", APK_SCORE_MAPPING
     ),
-    ("com.samsung.health.sleep", "deep_weight"): _apk(
-        "Deep-sleep score weight", APK_SCORE_MAPPING
-    ),
-    ("com.samsung.health.sleep", "rem_weight"): _apk(
-        "REM score weight", APK_SCORE_MAPPING
-    ),
+    ("com.samsung.health.sleep", "deep_weight"): _apk("Deep-sleep score weight", APK_SCORE_MAPPING),
+    ("com.samsung.health.sleep", "rem_weight"): _apk("REM score weight", APK_SCORE_MAPPING),
     ("com.samsung.health.sleep", "wake_weight"): _apk(
         "Awake/restfulness score weight", APK_SCORE_MAPPING
     ),
@@ -344,24 +332,16 @@ SEMANTICS: dict[tuple[str, str], dict] = {
     ("com.samsung.health.exercise", "count_type"): _official(
         "Type of repetitive-action count", EXERCISE
     ),
-    ("com.samsung.health.exercise", "max_speed"): _official(
-        "Maximum speed", EXERCISE, unit="m/s"
-    ),
-    ("com.samsung.health.exercise", "mean_speed"): _official(
-        "Mean speed", EXERCISE, unit="m/s"
-    ),
+    ("com.samsung.health.exercise", "max_speed"): _official("Maximum speed", EXERCISE, unit="m/s"),
+    ("com.samsung.health.exercise", "mean_speed"): _official("Mean speed", EXERCISE, unit="m/s"),
     ("com.samsung.health.exercise", "max_altitude"): _official(
         "Maximum altitude", EXERCISE, unit="m"
     ),
     ("com.samsung.health.exercise", "min_altitude"): _official(
         "Minimum altitude", EXERCISE, unit="m"
     ),
-    ("com.samsung.health.exercise", "max_power"): _official(
-        "Maximum power", EXERCISE, unit="W"
-    ),
-    ("com.samsung.health.exercise", "mean_power"): _official(
-        "Mean power", EXERCISE, unit="W"
-    ),
+    ("com.samsung.health.exercise", "max_power"): _official("Maximum power", EXERCISE, unit="W"),
+    ("com.samsung.health.exercise", "mean_power"): _official("Mean power", EXERCISE, unit="W"),
     ("com.samsung.health.exercise", "max_rpm"): _official(
         "Maximum revolutions per minute", EXERCISE, unit="rpm"
     ),
@@ -434,21 +414,13 @@ SEMANTICS: dict[tuple[str, str], dict] = {
 # they therefore use the separate official_schema_convention status.
 COMMON_SEMANTICS: dict[str, dict] = {
     "datauuid": _convention("Unique record identifier", COMMON),
-    "create_time": _convention(
-        "UTC record creation time", COMMON, unit="ms_since_epoch"
-    ),
-    "update_time": _convention(
-        "UTC record last-update time", COMMON, unit="ms_since_epoch"
-    ),
+    "create_time": _convention("UTC record creation time", COMMON, unit="ms_since_epoch"),
+    "update_time": _convention("UTC record last-update time", COMMON, unit="ms_since_epoch"),
     "pkg_name": _convention("Package that supplied the record", COMMON),
     "deviceuuid": _convention("Device identifier associated with the record", COMMON),
-    "start_time": _convention(
-        "UTC measurement start time", SESSION, unit="ms_since_epoch"
-    ),
+    "start_time": _convention("UTC measurement start time", SESSION, unit="ms_since_epoch"),
     "end_time": _convention("UTC measurement end time", SESSION, unit="ms_since_epoch"),
-    "time_offset": _convention(
-        "Time-zone and daylight-saving offset", SESSION, unit="ms"
-    ),
+    "time_offset": _convention("Time-zone and daylight-saving offset", SESSION, unit="ms"),
 }
 
 

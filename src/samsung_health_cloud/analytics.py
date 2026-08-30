@@ -23,9 +23,7 @@ def _day_bounds(day: date, tz: ZoneInfo = PARIS) -> tuple[int, int]:
 
 
 class HealthAnalytics:
-    def __init__(
-        self, cache: HealthCache, *, timezone: str | ZoneInfo = "Europe/Paris"
-    ) -> None:
+    def __init__(self, cache: HealthCache, *, timezone: str | ZoneInfo = "Europe/Paris") -> None:
         self.cache = cache
         self.tz = ZoneInfo(timezone) if isinstance(timezone, str) else timezone
 

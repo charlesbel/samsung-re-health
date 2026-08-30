@@ -108,10 +108,7 @@ def test_generic_analysis_accounts_for_every_observed_field_without_guessing_sem
     assert "automatic" not in str(result)
     assert result["fields"]["payload"]["statistics"]["object_keys"] == ["nested"]
     assert result["fields"]["samples"]["statistics"]["element_count"] == 3
-    assert (
-        result["fields"]["start_time"]["provenance"]["status"]
-        == "official_schema_convention"
-    )
+    assert result["fields"]["start_time"]["provenance"]["status"] == "official_schema_convention"
     assert all(
         field["provenance"]["status"] == "raw_observed"
         for key, field in result["fields"].items()
@@ -164,18 +161,13 @@ def test_generic_analysis_attaches_official_semantics_only_to_documented_fields(
     assert result["fields"]["distance"]["unit"] == "m"
     assert result["fields"]["calorie"]["unit"] == "kcal"
     assert result["fields"]["source_type"]["enum"][-2] == "all_sources_deduplicated"
-    assert (
-        result["fields"]["unknown_future_field"]["provenance"]["status"]
-        == "raw_observed"
-    )
+    assert result["fields"]["unknown_future_field"]["provenance"]["status"] == "raw_observed"
     assert result["coverage"]["officially_documented_fields"] == 4
     assert result["coverage"]["raw_observed_fields"] == 1
 
 
 def test_documented_ranges_and_enums_are_validated_against_observed_account_values():
-    weight = summarize_generic(
-        "com.samsung.health.weight", [{"weight": 70.0}, {"weight": 600.0}]
-    )
+    weight = summarize_generic("com.samsung.health.weight", [{"weight": 70.0}, {"weight": 600.0}])
     stages = summarize_generic(
         "com.samsung.health.sleep_stage", [{"stage": 40003}, {"stage": 99999}]
     )
@@ -194,9 +186,7 @@ def test_documented_ranges_and_enums_are_validated_against_observed_account_valu
         "com.samsung.health.weight", [{"fat_free": 95.0, "skeletal_muscle": 95.0}]
     )
     assert composition["fields"]["fat_free"]["validation"]["status"] == "valid"
-    assert (
-        composition["fields"]["skeletal_muscle"]["validation"]["violation_count"] == 1
-    )
+    assert composition["fields"]["skeletal_muscle"]["validation"]["violation_count"] == 1
 
 
 def test_apk_semantics_are_distinct_from_official_docs_and_keep_unknown_units_unknown():
@@ -210,16 +200,13 @@ def test_apk_semantics_are_distinct_from_official_docs_and_keep_unknown_units_un
             }
         ],
     )
-    oxygen = summarize_generic(
-        "com.samsung.health.oxygen_saturation", [{"low_duration": 30}]
-    )
+    oxygen = summarize_generic("com.samsung.health.oxygen_saturation", [{"low_duration": 30}])
 
     assert sleep["fields"]["efficiency"]["provenance"]["status"] == "apk_decompiled"
     assert sleep["fields"]["efficiency"]["unit"] == "percent"
     assert sleep["fields"]["sleep_duration"]["unit"] == "min"
     assert (
-        sleep["fields"]["movement_awakening"]["meaning"]
-        == "Movement-awakenings sleep score factor"
+        sleep["fields"]["movement_awakening"]["meaning"] == "Movement-awakenings sleep score factor"
     )
     assert "unit" not in sleep["fields"]["movement_awakening"]
     assert oxygen["fields"]["low_duration"]["provenance"]["status"] == "raw_observed"
@@ -315,10 +302,7 @@ def test_sleep_analysis_joins_stages_heart_rate_oxygen_and_snoring(tmp_path: Pat
         report["calculations"]["awake_periods_detected"]["not_equivalent_to"]
         == "number of conscious awakenings"
     )
-    assert (
-        report["calculations"]["reported_efficiency_percent"]["kind"]
-        == "direct_account_field"
-    )
+    assert report["calculations"]["reported_efficiency_percent"]["kind"] == "direct_account_field"
     assert "baseline_previous_nights" not in report
     assert report["baseline_previous_source_records"]["source_records"] == 0
     assert report["coverage"]["ignored_fields"] == []
@@ -330,9 +314,9 @@ def test_sleep_analysis_joins_stages_heart_rate_oxygen_and_snoring(tmp_path: Pat
         "com.samsung.shealth.sleep_snoring",
     }
     assert (
-        report["field_analysis"]["com.samsung.health.oxygen_saturation"]["fields"][
-            "low_duration"
-        ]["provenance"]["status"]
+        report["field_analysis"]["com.samsung.health.oxygen_saturation"]["fields"]["low_duration"][
+            "provenance"
+        ]["status"]
         == "raw_observed"
     )
 
@@ -414,9 +398,7 @@ def test_activity_week_comparison_uses_one_authoritative_daily_total(tmp_path: P
         source_type=0,
     )
 
-    report = HealthAnalysisEngine(c).activity_week(
-        date(2026, 8, 28), compare_previous=True
-    )
+    report = HealthAnalysisEngine(c).activity_week(date(2026, 8, 28), compare_previous=True)
 
     assert report["distance_km"] == 9.0
     assert report["comparison"]["previous_distance_km"] == 3.0

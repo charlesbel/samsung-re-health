@@ -1,0 +1,19 @@
+name: Security & Privacy Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  privacy-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify no private paths or secrets in repository
+        run: |
+          echo "Checking for maintainer paths and private artifacts..."
+          ! grep -r "/home/hermes" . --exclude-dir=.git --exclude-dir=.venv
+          ! grep -rE "([a-f0-9]{32,})" tests/contract/fixtures/ tests/unit/ src/
+          echo "Privacy gate check passed."

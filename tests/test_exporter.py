@@ -104,9 +104,7 @@ def test_jsonl_export_resumes_after_a_page_without_duplicates(tmp_path):
         output_path=output,
         page_size=200,
     )
-    assert [
-        json.loads(line) for line in output.read_text().splitlines()
-    ] == expected_records
+    assert [json.loads(line) for line in output.read_text().splitlines()] == expected_records
 
     extra_page = tmp_path / "steps.jsonl.pages" / "99999999.jsonl"
     extra_page.write_text("{}\n")

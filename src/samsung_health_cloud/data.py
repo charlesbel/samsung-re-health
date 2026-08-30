@@ -31,9 +31,7 @@ def _validate_data_url(url: str) -> str:
         hostname == suffix or hostname.endswith(f".{suffix}")
         for suffix in _ALLOWED_DATA_HOST_SUFFIXES
     ):
-        raise SamsungHealthCloudError(
-            f"untrusted host for health data transport: '{hostname}'"
-        )
+        raise SamsungHealthCloudError(f"untrusted host for health data transport: '{hostname}'")
     return url
 
 
@@ -64,9 +62,7 @@ class CloudDataClient:
             raise ValueError("schema revision must be non-negative")
         if e2ee_state not in _E2EE_HEADERS:
             raise ValueError("invalid E2EE state")
-        if (start_time is not None and start_time < 0) or (
-            end_time is not None and end_time < 0
-        ):
+        if (start_time is not None and start_time < 0) or (end_time is not None and end_time < 0):
             raise ValueError("time bounds must be non-negative")
         if start_time is not None and end_time is not None and start_time > end_time:
             raise ValueError("start time must not be after end time")
@@ -99,9 +95,7 @@ class CloudDataClient:
             ),
         )
         if response.status_code != 200:
-            raise SamsungHealthCloudError(
-                f"document GET failed with HTTP {response.status_code}"
-            )
+            raise SamsungHealthCloudError(f"document GET failed with HTTP {response.status_code}")
         try:
             payload = response.json()
         except ValueError as exc:

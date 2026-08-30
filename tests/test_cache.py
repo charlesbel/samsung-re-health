@@ -27,9 +27,7 @@ def envelope(
 
 def test_upsert_replaces_same_cloud_document_and_keeps_database_private(tmp_path: Path):
     cache = HealthCache(tmp_path / "health.sqlite3")
-    cache.upsert_documents(
-        "com.samsung.health.step_count", [envelope("one", start=1000, count=10)]
-    )
+    cache.upsert_documents("com.samsung.health.step_count", [envelope("one", start=1000, count=10)])
     cache.upsert_documents(
         "com.samsung.health.step_count",
         [envelope("one", start=1000, update=2000, count=25)],
@@ -73,7 +71,6 @@ def test_sync_metadata_tracks_freshness_without_storing_tokens(tmp_path: Path):
     }
     with sqlite3.connect(tmp_path / "health.sqlite3") as db:
         schema = " ".join(
-            row[0]
-            for row in db.execute("SELECT sql FROM sqlite_master WHERE sql IS NOT NULL")
+            row[0] for row in db.execute("SELECT sql FROM sqlite_master WHERE sql IS NOT NULL")
         )
     assert "token" not in schema.lower()

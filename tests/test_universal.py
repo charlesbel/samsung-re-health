@@ -19,10 +19,7 @@ def test_resolve_manifest_accepts_exact_id_and_unique_human_suffix():
         resolve_manifest(MANIFESTS, "com.samsung.health.exercise").manifest_id
         == "com.samsung.health.exercise"
     )
-    assert (
-        resolve_manifest(MANIFESTS, "exercise").manifest_id
-        == "com.samsung.health.exercise"
-    )
+    assert resolve_manifest(MANIFESTS, "exercise").manifest_id == "com.samsung.health.exercise"
 
 
 def test_resolve_manifest_rejects_ambiguous_or_unknown_queries():

@@ -11,16 +11,12 @@ SCHEMAS_DIR = Path(__file__).parent.parent.parent / "schemas" / "cli" / "v1"
 
 @pytest.fixture
 def response_envelope_schema() -> dict:
-    return json.loads(
-        (SCHEMAS_DIR / "response-envelope.schema.json").read_text(encoding="utf-8")
-    )
+    return json.loads((SCHEMAS_DIR / "response-envelope.schema.json").read_text(encoding="utf-8"))
 
 
 @pytest.fixture
 def error_envelope_schema() -> dict:
-    return json.loads(
-        (SCHEMAS_DIR / "error-envelope.schema.json").read_text(encoding="utf-8")
-    )
+    return json.loads((SCHEMAS_DIR / "error-envelope.schema.json").read_text(encoding="utf-8"))
 
 
 def test_cli_status_json_envelope(tmp_path: Path, capsys, response_envelope_schema):
@@ -53,9 +49,7 @@ def test_cli_types_json_envelope(tmp_path: Path, capsys, response_envelope_schem
     assert len(payload["data"]) > 0
 
 
-def test_cli_error_envelope_and_exit_code(
-    tmp_path: Path, capsys, error_envelope_schema
-):
+def test_cli_error_envelope_and_exit_code(tmp_path: Path, capsys, error_envelope_schema):
     # Invalid argument combination
     exit_code = cli.main(["analyze", "sleep", "--period", "week"])
     assert exit_code == 2

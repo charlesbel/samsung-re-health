@@ -156,9 +156,7 @@ def test_analysis_rejects_an_inverted_explicit_interval():
 def test_analysis_rejects_options_that_a_specialized_analyzer_would_ignore():
     sleep = build_parser().parse_args(["analyze", "sleep", "--period", "week"])
     exercise = build_parser().parse_args(["analyze", "exercise", "--latest"])
-    generic = build_parser().parse_args(
-        ["analyze", "weight", "--latest", "--since", "2026-01-01"]
-    )
+    generic = build_parser().parse_args(["analyze", "weight", "--latest", "--since", "2026-01-01"])
 
     with pytest.raises(ValueError, match="sleep analysis only supports --latest"):
         _validate_analysis_options(sleep, "sleep")

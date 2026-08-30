@@ -58,9 +58,7 @@ def test_fresh_sync_is_skipped_unless_forced(tmp_path: Path):
         manifest_version=4,
         push_id="push",
     )
-    cache.mark_synced(
-        manifest.manifest_id, schema_revision=5, synced_at=9_500, record_count=1
-    )
+    cache.mark_synced(manifest.manifest_id, schema_revision=5, synced_at=9_500, record_count=1)
     synchronizer = CacheSynchronizer(
         cache, client, cloud_authorization="redacted", now_ms=lambda: 10_000
     )
@@ -80,9 +78,7 @@ def test_legacy_404_manifest_is_reported_unavailable_not_as_sync_failure(
             yield
 
     cache = HealthCache(tmp_path / "health.sqlite3")
-    manifest = ManifestInfo(
-        "com.samsung.shealth.sleep", schema_revision=13, manifest_version=11
-    )
+    manifest = ManifestInfo("com.samsung.shealth.sleep", schema_revision=13, manifest_version=11)
     synchronizer = CacheSynchronizer(
         cache,
         MissingDataClient(),
@@ -99,9 +95,7 @@ def test_legacy_404_manifest_is_reported_unavailable_not_as_sync_failure(
 
 def test_full_history_sync_prunes_documents_no_longer_present_upstream(tmp_path: Path):
     cache = HealthCache(tmp_path / "health.sqlite3")
-    manifest = ManifestInfo(
-        "com.samsung.health.step_count", schema_revision=5, manifest_version=4
-    )
+    manifest = ManifestInfo("com.samsung.health.step_count", schema_revision=5, manifest_version=4)
     cache.upsert_documents(
         manifest.manifest_id,
         [

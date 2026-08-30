@@ -4,9 +4,7 @@ from pathlib import Path
 import jsonschema
 import pytest
 
-SCHEMA_PATH = (
-    Path(__file__).parent.parent.parent / "schemas" / "master-state-v1.schema.json"
-)
+SCHEMA_PATH = Path(__file__).parent.parent.parent / "schemas" / "master-state-v1.schema.json"
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
@@ -24,9 +22,7 @@ def test_master_state_v1_valid_fixture_conforms(master_schema):
 
 def test_master_state_v1_future_version_rejected(master_schema):
     fixture = json.loads(
-        (FIXTURES_DIR / "master-state-v1.invalid-future-version.json").read_text(
-            encoding="utf-8"
-        )
+        (FIXTURES_DIR / "master-state-v1.invalid-future-version.json").read_text(encoding="utf-8")
     )
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(instance=fixture, schema=master_schema)
@@ -34,9 +30,7 @@ def test_master_state_v1_future_version_rejected(master_schema):
 
 def test_master_state_v1_invalid_authority_rejected(master_schema):
     fixture = json.loads(
-        (FIXTURES_DIR / "master-state-v1.invalid-authority.json").read_text(
-            encoding="utf-8"
-        )
+        (FIXTURES_DIR / "master-state-v1.invalid-authority.json").read_text(encoding="utf-8")
     )
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(instance=fixture, schema=master_schema)

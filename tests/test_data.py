@@ -15,9 +15,7 @@ def test_list_documents_is_a_bounded_get_with_cloud_auth():
         assert request.url.params["end_time"] == "2000"
         assert request.headers["authorization"] == "Bearer cloud-secret"
         assert request.headers["x-sc-e2ee-state"] == "OFF"
-        return httpx.Response(
-            200, json={"items": [{"uuid": "record-1"}], "pageToken": "next"}
-        )
+        return httpx.Response(200, json={"items": [{"uuid": "record-1"}], "pageToken": "next"})
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         payload = CloudDataClient(client).list_documents(
@@ -89,9 +87,7 @@ def test_iter_documents_follows_all_pages_and_detects_pagination_loops():
 
 
 def test_list_documents_rejects_unsafe_manifest_and_large_limit():
-    with httpx.Client(
-        transport=httpx.MockTransport(lambda request: httpx.Response(500))
-    ) as client:
+    with httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(500))) as client:
         data = CloudDataClient(client)
         for manifest_id, limit in (
             ("../tokens", 1),

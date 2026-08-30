@@ -55,12 +55,7 @@ class StateStore:
     @contextmanager
     def locked(self):
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        flags = (
-            os.O_CREAT
-            | os.O_RDWR
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
-        )
+        flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
         fd = os.open(self.lock_path, flags, 0o600)
         try:
             os.fchmod(fd, 0o600)
@@ -77,16 +72,12 @@ class StateStore:
             raise SamsungHealthCloudError("Samsung Health state must not be a symlink")
         try:
             file_stat = self.path.stat()
-        except OSError:
-            raise SamsungHealthCloudError("unable to inspect Samsung Health state")
+        except OSError as exc:
+            raise SamsungHealthCloudError("unable to inspect Samsung Health state") from exc
         if file_stat.st_uid != os.getuid():
-            raise SamsungHealthCloudError(
-                "Samsung Health state has an unexpected owner"
-            )
+            raise SamsungHealthCloudError("Samsung Health state has an unexpected owner")
         if stat.S_IMODE(file_stat.st_mode) & 0o077:
-            raise SamsungHealthCloudError(
-                "Samsung Health state permissions must be private"
-            )
+            raise SamsungHealthCloudError("Samsung Health state permissions must be private")
         payload: object | None = None
         failed = False
         try:
@@ -111,25 +102,19 @@ class StateStore:
             "cloud_expires_at",
         }
         if any(not isinstance(selected.get(key, ""), str) for key in string_fields):
-            raise SamsungHealthCloudError(
-                "Samsung Health state contains invalid field types"
-            )
+            raise SamsungHealthCloudError("Samsung Health state contains invalid field types")
         if any(
             not isinstance(selected.get(key, 0), int)
             or isinstance(selected.get(key, 0), bool)
             or selected.get(key, 0) < 0
             for key in integer_fields
         ):
-            raise SamsungHealthCloudError(
-                "Samsung Health state contains invalid field types"
-            )
+            raise SamsungHealthCloudError("Samsung Health state contains invalid field types")
         return HealthState(**selected)
 
     def save(self, state: HealthState) -> None:
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        fd, temporary_name = tempfile.mkstemp(
-            prefix=f".{self.path.name}.", dir=self.path.parent
-        )
+        fd, temporary_name = tempfile.mkstemp(prefix=f".{self.path.name}.", dir=self.path.parent)
         temporary = Path(temporary_name)
         try:
             os.fchmod(fd, 0o600)

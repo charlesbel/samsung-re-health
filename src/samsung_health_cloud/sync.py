@@ -69,9 +69,7 @@ class CacheSynchronizer:
                         seen_ids.add(self.cache.document_id(envelope))
                     batch.append(envelope)
                     if len(batch) >= 1000:
-                        fetched += self.cache.upsert_documents(
-                            manifest.manifest_id, batch
-                        )
+                        fetched += self.cache.upsert_documents(manifest.manifest_id, batch)
                         batch.clear()
                 fetched += self.cache.upsert_documents(manifest.manifest_id, batch)
                 if seen_ids is not None:
@@ -107,9 +105,7 @@ class CacheSynchronizer:
                     error=message,
                 )
                 result["failed_manifests"] += 1
-                result["errors"].append(
-                    {"manifest_id": manifest.manifest_id, "error": message}
-                )
+                result["errors"].append({"manifest_id": manifest.manifest_id, "error": message})
             except Exception as exc:  # noqa: BLE001 - per-manifest isolation; never include request/token details
                 message = f"{type(exc).__name__}: sync failed"
                 self.cache.mark_synced(
@@ -120,7 +116,5 @@ class CacheSynchronizer:
                     error=message,
                 )
                 result["failed_manifests"] += 1
-                result["errors"].append(
-                    {"manifest_id": manifest.manifest_id, "error": message}
-                )
+                result["errors"].append({"manifest_id": manifest.manifest_id, "error": message})
         return result

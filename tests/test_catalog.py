@@ -21,7 +21,20 @@ def test_catalog_round_trip_is_private(tmp_path):
 
 def test_catalog_rejects_invalid_manifest_ids(tmp_path):
     path = tmp_path / "catalog.json"
-    path.write_text(json.dumps({"manifests": [{"manifest_id": "../../escape", "schema_revision": 1, "manifest_version": 1, "push_id": ""}]}))
+    path.write_text(
+        json.dumps(
+            {
+                "manifests": [
+                    {
+                        "manifest_id": "../../escape",
+                        "schema_revision": 1,
+                        "manifest_version": 1,
+                        "push_id": "",
+                    }
+                ]
+            }
+        )
+    )
     with pytest.raises(SamsungHealthCloudError, match="manifest"):
         CatalogStore(path).load()
 

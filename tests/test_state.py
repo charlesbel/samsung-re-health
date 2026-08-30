@@ -8,7 +8,9 @@ from samsung_health_cloud.auth import SamsungHealthCloudError
 from samsung_health_cloud.state import HealthState, StateStore
 
 
-def test_state_store_writes_atomically_with_private_permissions_and_redacted_repr(tmp_path):
+def test_state_store_writes_atomically_with_private_permissions_and_redacted_repr(
+    tmp_path,
+):
     path = tmp_path / "state.json"
     state = HealthState(
         health_access_token="health-secret",

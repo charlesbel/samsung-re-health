@@ -17,10 +17,16 @@ def resolve_manifest(manifests: Iterable[ManifestInfo], query: str) -> ManifestI
     if exact:
         return exact[0]
     normalized = _normalize(query)
-    suffix = [item for item in choices if _normalize(item.manifest_id.rsplit(".", 1)[-1]) == normalized]
+    suffix = [
+        item
+        for item in choices
+        if _normalize(item.manifest_id.rsplit(".", 1)[-1]) == normalized
+    ]
     if len(suffix) == 1:
         return suffix[0]
-    modern_suffix = [item for item in suffix if item.manifest_id.startswith("com.samsung.health.")]
+    modern_suffix = [
+        item for item in suffix if item.manifest_id.startswith("com.samsung.health.")
+    ]
     if len(modern_suffix) == 1:
         return modern_suffix[0]
     matches = [item for item in choices if normalized in _normalize(item.manifest_id)]

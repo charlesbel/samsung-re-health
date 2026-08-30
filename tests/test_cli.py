@@ -2,9 +2,15 @@ import httpx
 import pytest
 
 from samsung_health_cloud import cli
-from samsung_health_cloud.cli import _analysis_bounds, _limited, _schema_report, _validate_analysis_options, build_parser
 from samsung_health_cloud.cache import HealthCache
 from samsung_health_cloud.catalog import ManifestInfo
+from samsung_health_cloud.cli import (
+    _analysis_bounds,
+    _limited,
+    _schema_report,
+    _validate_analysis_options,
+    build_parser,
+)
 
 
 def test_cli_exposes_complete_read_only_commands():
@@ -14,14 +20,36 @@ def test_cli_exposes_complete_read_only_commands():
     listing = parser.parse_args(["manifests", "list"])
     show = parser.parse_args(["manifests", "show", "com.samsung.health.sleep"])
     read_all = parser.parse_args(
-        ["read", "com.samsung.health.step_count", "--all", "--format", "jsonl", "--since", "2026-01-01"]
+        [
+            "read",
+            "com.samsung.health.step_count",
+            "--all",
+            "--format",
+            "jsonl",
+            "--since",
+            "2026-01-01",
+        ]
     )
     export = parser.parse_args(
-        ["export", "com.samsung.health.sleep", "--output", "/tmp/sleep.jsonl", "--until", "2026-12-31"]
+        [
+            "export",
+            "com.samsung.health.sleep",
+            "--output",
+            "/tmp/sleep.jsonl",
+            "--until",
+            "2026-12-31",
+        ]
     )
     export_all = parser.parse_args(["export-all", "--output-dir", "/tmp/health"])
     documents = parser.parse_args(
-        ["documents", "com.samsung.health.step_count", "--schema-revision", "5", "--limit", "1"]
+        [
+            "documents",
+            "com.samsung.health.step_count",
+            "--schema-revision",
+            "5",
+            "--limit",
+            "1",
+        ]
     )
     summary = parser.parse_args(["summary", "2026-08-28"])
     steps = parser.parse_args(["steps", "2026-08-28"])
@@ -31,11 +59,24 @@ def test_cli_exposes_complete_read_only_commands():
     sync = parser.parse_args(["sync", "--days", "30", "--force"])
     cache_status = parser.parse_args(["cache-status"])
     types = parser.parse_args(["types", "sleep"])
-    data = parser.parse_args(["data", "exercise", "--since", "2026-01-01", "--limit", "50", "--offset", "100"])
+    data = parser.parse_args(
+        [
+            "data",
+            "exercise",
+            "--since",
+            "2026-01-01",
+            "--limit",
+            "50",
+            "--offset",
+            "100",
+        ]
+    )
     inventory = parser.parse_args(["inventory", "exercise"])
     schema = parser.parse_args(["schema", "sleep"])
     analyze_sleep = parser.parse_args(["analyze", "sleep", "--latest", "--no-sync"])
-    analyze_week = parser.parse_args(["analyze", "activity", "--period", "week", "--compare", "previous"])
+    analyze_week = parser.parse_args(
+        ["analyze", "activity", "--period", "week", "--compare", "previous"]
+    )
     analyze_exercise = parser.parse_args(["analyze", "exercise", "--all-history"])
 
     assert status.command == "status"
@@ -69,12 +110,21 @@ def test_cli_exposes_complete_read_only_commands():
     assert "deregister" not in help_text
 
 
-def test_schema_report_proves_every_account_field_has_semantics_or_neutral_fallback(tmp_path):
+def test_schema_report_proves_every_account_field_has_semantics_or_neutral_fallback(
+    tmp_path,
+):
     cache = HealthCache(tmp_path / "health.sqlite3")
-    cache.upsert_documents("com.samsung.health.weight", [{
-        "data": {"datauuid": "a", "start_time": 1, "weight": 70.0, "future": 9},
-        "files": [], "downloadUrls": [], "needToDecrypt": False,
-    }])
+    cache.upsert_documents(
+        "com.samsung.health.weight",
+        [
+            {
+                "data": {"datauuid": "a", "start_time": 1, "weight": 70.0, "future": 9},
+                "files": [],
+                "downloadUrls": [],
+                "needToDecrypt": False,
+            }
+        ],
+    )
     manifests = [ManifestInfo("com.samsung.health.weight", 1, 1)]
 
     report = _schema_report(cache, manifests, None)
@@ -88,9 +138,16 @@ def test_schema_report_proves_every_account_field_has_semantics_or_neutral_fallb
 
 
 def test_analysis_rejects_an_inverted_explicit_interval():
-    args = build_parser().parse_args([
-        "analyze", "weight", "--since", "2026-08-02", "--until", "2026-08-01",
-    ])
+    args = build_parser().parse_args(
+        [
+            "analyze",
+            "weight",
+            "--since",
+            "2026-08-02",
+            "--until",
+            "2026-08-01",
+        ]
+    )
 
     with pytest.raises(ValueError, match="since must not be after until"):
         _analysis_bounds(args)
@@ -99,7 +156,9 @@ def test_analysis_rejects_an_inverted_explicit_interval():
 def test_analysis_rejects_options_that_a_specialized_analyzer_would_ignore():
     sleep = build_parser().parse_args(["analyze", "sleep", "--period", "week"])
     exercise = build_parser().parse_args(["analyze", "exercise", "--latest"])
-    generic = build_parser().parse_args(["analyze", "weight", "--latest", "--since", "2026-01-01"])
+    generic = build_parser().parse_args(
+        ["analyze", "weight", "--latest", "--since", "2026-01-01"]
+    )
 
     with pytest.raises(ValueError, match="sleep analysis only supports --latest"):
         _validate_analysis_options(sleep, "sleep")

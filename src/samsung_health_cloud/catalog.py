@@ -4,9 +4,9 @@ import json
 import os
 import re
 import tempfile
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable
 
 from .auth import SamsungHealthCloudError
 
@@ -40,12 +40,21 @@ class CatalogStore:
             payload = json.loads(self.path.read_text(encoding="utf-8"))
             return [ManifestInfo(**entry) for entry in payload["manifests"]]
         except (OSError, ValueError, KeyError, TypeError) as exc:
-            raise SamsungHealthCloudError("unable to read Samsung Health manifest catalog") from exc
+            raise SamsungHealthCloudError(
+                "unable to read Samsung Health manifest catalog"
+            ) from exc
 
     def save(self, manifests: Iterable[ManifestInfo]) -> None:
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        payload = {"manifests": [asdict(item) for item in sorted(manifests, key=lambda item: item.manifest_id)]}
-        fd, temporary_name = tempfile.mkstemp(prefix=f".{self.path.name}.", dir=self.path.parent)
+        payload = {
+            "manifests": [
+                asdict(item)
+                for item in sorted(manifests, key=lambda item: item.manifest_id)
+            ]
+        }
+        fd, temporary_name = tempfile.mkstemp(
+            prefix=f".{self.path.name}.", dir=self.path.parent
+        )
         temporary = Path(temporary_name)
         try:
             os.fchmod(fd, 0o600)

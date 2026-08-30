@@ -62,10 +62,14 @@ class ScspIdentity:
         payload = self._json(response, "SCSP registration")
         registration_id = payload.get("registrationId")
         if not isinstance(registration_id, str) or not registration_id:
-            raise SamsungHealthCloudError("SCSP registration response missing registration id")
+            raise SamsungHealthCloudError(
+                "SCSP registration response missing registration id"
+            )
         return registration_id
 
-    def issue_token(self, *, health_access_token: str, user_id: str, cdid: str) -> CloudToken:
+    def issue_token(
+        self, *, health_access_token: str, user_id: str, cdid: str
+    ) -> CloudToken:
         headers = self._headers(health_access_token, user_id, cdid)
         headers["x-sc-app-version"] = APP_VERSION
         response = safe_http_call(
@@ -78,12 +82,18 @@ class ScspIdentity:
             access_token = str(payload["accessToken"])
             expires_at = int(payload["expiresAt"])
         except (KeyError, TypeError, ValueError) as exc:
-            raise SamsungHealthCloudError("SCSP token response missing expected fields") from exc
+            raise SamsungHealthCloudError(
+                "SCSP token response missing expected fields"
+            ) from exc
         if not token_type or not access_token:
             raise SamsungHealthCloudError("SCSP token response contains an empty token")
-        return CloudToken(authorization=f"{token_type} {access_token}", expires_at=expires_at)
+        return CloudToken(
+            authorization=f"{token_type} {access_token}", expires_at=expires_at
+        )
 
-    def _headers(self, health_access_token: str, user_id: str, cdid: str) -> dict[str, str]:
+    def _headers(
+        self, health_access_token: str, user_id: str, cdid: str
+    ) -> dict[str, str]:
         return {
             "User-Agent": (
                 f"{self.profile.model_name}; HERMES; com.sec.android.app.shealth={APP_VERSION}; "
@@ -101,7 +111,9 @@ class ScspIdentity:
     @staticmethod
     def _json(response: httpx.Response, operation: str) -> dict[str, Any]:
         if response.status_code != 200:
-            raise SamsungHealthCloudError(f"{operation} failed with HTTP {response.status_code}")
+            raise SamsungHealthCloudError(
+                f"{operation} failed with HTTP {response.status_code}"
+            )
         try:
             payload = response.json()
         except ValueError as exc:

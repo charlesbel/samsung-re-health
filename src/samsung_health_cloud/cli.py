@@ -7,25 +7,25 @@ import shutil
 import sys
 import tempfile
 import time
+from collections.abc import Iterable, Iterator
 from dataclasses import asdict
 from datetime import date, datetime, timedelta
 from itertools import islice
 from pathlib import Path
-from typing import Iterable, Iterator
 
 import httpx
 
+from .analysis_engine import MAX_MS, HealthAnalysisEngine
+from .analytics import HEART_RATE, PARIS, SLEEP, STEP_DAILY, WEIGHT, HealthAnalytics
 from .auth import HealthAuth, SamsungHealthCloudError
-from .analytics import HEART_RATE, SLEEP, STEP_DAILY, WEIGHT, HealthAnalytics, PARIS
-from .analysis_engine import HealthAnalysisEngine, MAX_MS
 from .cache import HealthCache
 from .catalog import CatalogStore, ManifestInfo
 from .data import CloudDataClient
 from .exporter import JsonlExporter
 from .filters import filter_records, parse_instant_ms, parse_until_ms
 from .scsp import DeviceProfile, ScspIdentity
-from .service import SamsungHealthService
 from .semantics import field_semantics
+from .service import SamsungHealthService
 from .state import StateStore
 from .sync import CacheSynchronizer
 from .universal import resolve_manifest
@@ -39,7 +39,9 @@ CORE_MANIFEST_IDS = (STEP_DAILY, SLEEP, HEART_RATE, WEIGHT)
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Samsung Health Cloud CLI complet et strictement en lecture seule")
+    parser = argparse.ArgumentParser(
+        description="Samsung Health Cloud CLI complet et strictement en lecture seule"
+    )
     parser.add_argument("--version", action="version", version="%(prog)s 0.6.0")
     parser.add_argument("--master-state", type=Path, default=DEFAULT_MASTER_STATE)
     parser.add_argument("--state", type=Path, default=DEFAULT_HEALTH_STATE)
@@ -47,45 +49,79 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cache", type=Path, default=DEFAULT_CACHE)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("init", help="Initialiser ou renouveler la session Health/SCSP")
-    subparsers.add_parser("status", help="Afficher la présence et les échéances des jetons")
-    subparsers.add_parser("doctor", help="Vérifier les prérequis locaux sans afficher de secret")
+    subparsers.add_parser(
+        "init", help="Initialiser ou renouveler la session Health/SCSP"
+    )
+    subparsers.add_parser(
+        "status", help="Afficher la présence et les échéances des jetons"
+    )
+    subparsers.add_parser(
+        "doctor", help="Vérifier les prérequis locaux sans afficher de secret"
+    )
 
-    manifests = subparsers.add_parser("manifests", help="Consulter le catalogue local des types Samsung Health")
-    manifest_commands = manifests.add_subparsers(dest="manifests_command", required=True)
-    list_parser = manifest_commands.add_parser("list", help="Lister tous les types connus")
+    manifests = subparsers.add_parser(
+        "manifests", help="Consulter le catalogue local des types Samsung Health"
+    )
+    manifest_commands = manifests.add_subparsers(
+        dest="manifests_command", required=True
+    )
+    list_parser = manifest_commands.add_parser(
+        "list", help="Lister tous les types connus"
+    )
     list_parser.add_argument("--filter", default="")
-    show_parser = manifest_commands.add_parser("show", help="Afficher les métadonnées d’un type")
+    show_parser = manifest_commands.add_parser(
+        "show", help="Afficher les métadonnées d’un type"
+    )
     show_parser.add_argument("manifest_id")
 
-    read_parser = subparsers.add_parser("read", help="Lire et afficher les documents d’un type")
+    read_parser = subparsers.add_parser(
+        "read", help="Lire et afficher les documents d’un type"
+    )
     read_parser.add_argument("manifest_id")
     read_limit = read_parser.add_mutually_exclusive_group()
     read_limit.add_argument("--limit", type=int, default=20)
     read_limit.add_argument("--all", action="store_true")
     read_parser.add_argument("--page-size", type=int, default=200)
-    read_parser.add_argument("--format", choices=("json", "jsonl", "pretty"), default="pretty")
-    read_parser.add_argument("--e2ee-state", choices=("disabled", "enabled", "none"), default="disabled")
-    read_parser.add_argument("--since", help="Début ISO-8601, fuseau Europe/Paris si absent")
-    read_parser.add_argument("--until", help="Fin ISO-8601 ; une date seule inclut toute la journée")
+    read_parser.add_argument(
+        "--format", choices=("json", "jsonl", "pretty"), default="pretty"
+    )
+    read_parser.add_argument(
+        "--e2ee-state", choices=("disabled", "enabled", "none"), default="disabled"
+    )
+    read_parser.add_argument(
+        "--since", help="Début ISO-8601, fuseau Europe/Paris si absent"
+    )
+    read_parser.add_argument(
+        "--until", help="Fin ISO-8601 ; une date seule inclut toute la journée"
+    )
 
-    export_parser = subparsers.add_parser("export", help="Exporter intégralement un type en JSONL reprenable")
+    export_parser = subparsers.add_parser(
+        "export", help="Exporter intégralement un type en JSONL reprenable"
+    )
     export_parser.add_argument("manifest_id")
     export_parser.add_argument("--output", type=Path)
     export_parser.add_argument("--page-size", type=int, default=50)
-    export_parser.add_argument("--e2ee-state", choices=("disabled", "enabled", "none"), default="disabled")
+    export_parser.add_argument(
+        "--e2ee-state", choices=("disabled", "enabled", "none"), default="disabled"
+    )
     export_parser.add_argument("--since")
     export_parser.add_argument("--until")
 
-    export_all = subparsers.add_parser("export-all", help="Exporter séquentiellement tous les types du catalogue")
+    export_all = subparsers.add_parser(
+        "export-all", help="Exporter séquentiellement tous les types du catalogue"
+    )
     export_all.add_argument("--output-dir", type=Path, default=DEFAULT_EXPORT_ROOT)
     export_all.add_argument("--page-size", type=int, default=50)
-    export_all.add_argument("--e2ee-state", choices=("disabled", "enabled", "none"), default="disabled")
+    export_all.add_argument(
+        "--e2ee-state", choices=("disabled", "enabled", "none"), default="disabled"
+    )
     export_all.add_argument("--stop-on-error", action="store_true")
     export_all.add_argument("--since")
     export_all.add_argument("--until")
 
-    documents = subparsers.add_parser("documents", help="Compatibilité : lire une page avec une révision explicite")
+    documents = subparsers.add_parser(
+        "documents", help="Compatibilité : lire une page avec une révision explicite"
+    )
     documents.add_argument("manifest_id")
     documents.add_argument("--schema-revision", required=True, type=int)
     documents.add_argument("--limit", type=int, default=1)
@@ -98,46 +134,109 @@ def build_parser() -> argparse.ArgumentParser:
         ("heart-rate", "Statistiques cardiaques consolidées d’une journée"),
     ):
         report = subparsers.add_parser(name, help=help_text)
-        report.add_argument("day", nargs="?", help="Date YYYY-MM-DD (aujourd’hui par défaut)")
-        report.add_argument("--no-sync", action="store_true", help="Lire immédiatement le cache sans réseau")
+        report.add_argument(
+            "day", nargs="?", help="Date YYYY-MM-DD (aujourd’hui par défaut)"
+        )
+        report.add_argument(
+            "--no-sync",
+            action="store_true",
+            help="Lire immédiatement le cache sans réseau",
+        )
 
     weight = subparsers.add_parser("weight", help="Dernière mesure de poids consolidée")
-    weight.add_argument("--no-sync", action="store_true", help="Lire immédiatement le cache sans réseau")
+    weight.add_argument(
+        "--no-sync", action="store_true", help="Lire immédiatement le cache sans réseau"
+    )
 
-    sync = subparsers.add_parser("sync", help="Actualiser le cache local en arrière-plan")
-    sync.add_argument("--days", type=int, default=14, help="Fenêtre récente à actualiser (défaut: 14 jours)")
-    sync.add_argument("--all-history", action="store_true", help="Importer tout l’historique des types usuels")
-    sync.add_argument("--all-types", action="store_true", help="Importer les 182 types du catalogue")
-    sync.add_argument("--force", action="store_true", help="Ignorer la fraîcheur du cache")
+    sync = subparsers.add_parser(
+        "sync", help="Actualiser le cache local en arrière-plan"
+    )
+    sync.add_argument(
+        "--days",
+        type=int,
+        default=14,
+        help="Fenêtre récente à actualiser (défaut: 14 jours)",
+    )
+    sync.add_argument(
+        "--all-history",
+        action="store_true",
+        help="Importer tout l’historique des types usuels",
+    )
+    sync.add_argument(
+        "--all-types", action="store_true", help="Importer les 182 types du catalogue"
+    )
+    sync.add_argument(
+        "--force", action="store_true", help="Ignorer la fraîcheur du cache"
+    )
     subparsers.add_parser("cache-status", help="État synthétique du cache local")
 
-    types_parser = subparsers.add_parser("types", help="Rechercher tous les types de données disponibles")
+    types_parser = subparsers.add_parser(
+        "types", help="Rechercher tous les types de données disponibles"
+    )
     types_parser.add_argument("filter", nargs="?", default="")
 
-    data_parser = subparsers.add_parser("data", help="Lire n’importe quel type depuis le miroir universel")
-    data_parser.add_argument("query", help="Nom humain, suffixe ou identifiant complet du type")
+    data_parser = subparsers.add_parser(
+        "data", help="Lire n’importe quel type depuis le miroir universel"
+    )
+    data_parser.add_argument(
+        "query", help="Nom humain, suffixe ou identifiant complet du type"
+    )
     data_parser.add_argument("--since", help="Début ISO-8601")
     data_parser.add_argument("--until", help="Fin ISO-8601")
     data_parser.add_argument("--limit", type=int, default=100)
     data_parser.add_argument("--offset", type=int, default=0)
-    data_parser.add_argument("--envelope", action="store_true", help="Inclure fichiers, URLs et métadonnées cloud")
-    data_parser.add_argument("--no-sync", action="store_true", help="Lire uniquement le cache local")
+    data_parser.add_argument(
+        "--envelope",
+        action="store_true",
+        help="Inclure fichiers, URLs et métadonnées cloud",
+    )
+    data_parser.add_argument(
+        "--no-sync", action="store_true", help="Lire uniquement le cache local"
+    )
 
-    inventory_parser = subparsers.add_parser("inventory", help="Couverture, champs et contenus annexes du miroir")
-    inventory_parser.add_argument("query", nargs="?", help="Type précis ; tous les types si absent")
+    inventory_parser = subparsers.add_parser(
+        "inventory", help="Couverture, champs et contenus annexes du miroir"
+    )
+    inventory_parser.add_argument(
+        "query", nargs="?", help="Type précis ; tous les types si absent"
+    )
 
-    schema_parser = subparsers.add_parser("schema", help="Sémantique sourcée et couverture de tous les champs observés")
-    schema_parser.add_argument("query", nargs="?", help="Type précis ; audit global synthétique si absent")
+    schema_parser = subparsers.add_parser(
+        "schema", help="Sémantique sourcée et couverture de tous les champs observés"
+    )
+    schema_parser.add_argument(
+        "query", nargs="?", help="Type précis ; audit global synthétique si absent"
+    )
 
-    analyze = subparsers.add_parser("analyze", help="Vue analytique pertinente d’un type, événement ou intervalle")
-    analyze.add_argument("query", help="sleep, activity, exercise ou n’importe quel type du catalogue")
-    analyze.add_argument("--latest", action="store_true", help="Analyser le dernier événement pertinent")
-    analyze.add_argument("--period", choices=("day", "week", "month"), help="Période civile Europe/Paris")
+    analyze = subparsers.add_parser(
+        "analyze", help="Vue analytique pertinente d’un type, événement ou intervalle"
+    )
+    analyze.add_argument(
+        "query", help="sleep, activity, exercise ou n’importe quel type du catalogue"
+    )
+    analyze.add_argument(
+        "--latest", action="store_true", help="Analyser le dernier événement pertinent"
+    )
+    analyze.add_argument(
+        "--period", choices=("day", "week", "month"), help="Période civile Europe/Paris"
+    )
     analyze.add_argument("--since", help="Début ISO-8601 explicite")
     analyze.add_argument("--until", help="Fin ISO-8601 explicite")
-    analyze.add_argument("--compare", choices=("previous",), help="Comparer à la période précédente équivalente")
-    analyze.add_argument("--all-history", action="store_true", help="Analyser tout l’historique disponible")
-    analyze.add_argument("--no-sync", action="store_true", help="Analyser immédiatement le miroir sans réseau")
+    analyze.add_argument(
+        "--compare",
+        choices=("previous",),
+        help="Comparer à la période précédente équivalente",
+    )
+    analyze.add_argument(
+        "--all-history",
+        action="store_true",
+        help="Analyser tout l’historique disponible",
+    )
+    analyze.add_argument(
+        "--no-sync",
+        action="store_true",
+        help="Analyser immédiatement le miroir sans réseau",
+    )
     return parser
 
 
@@ -158,12 +257,23 @@ def _status(store: StateStore) -> dict[str, object]:
 
 def _doctor(args: argparse.Namespace) -> dict[str, object]:
     catalog = CatalogStore(args.catalog).load() if args.catalog.exists() else []
-    usage = shutil.disk_usage(args.state.parent if args.state.parent.exists() else Path.home())
+    usage = shutil.disk_usage(
+        args.state.parent if args.state.parent.exists() else Path.home()
+    )
     return {
-        "ok": all((args.master_state.exists(), args.state.exists(), args.catalog.exists(), args.cache.exists())),
+        "ok": all(
+            (
+                args.master_state.exists(),
+                args.state.exists(),
+                args.catalog.exists(),
+                args.cache.exists(),
+            )
+        ),
         "master_state_present": args.master_state.exists(),
         "health_state_present": args.state.exists(),
-        "health_state_mode": oct(args.state.stat().st_mode & 0o777) if args.state.exists() else None,
+        "health_state_mode": oct(args.state.stat().st_mode & 0o777)
+        if args.state.exists()
+        else None,
         "catalog_present": args.catalog.exists(),
         "catalog_count": len(catalog),
         "cache_present": args.cache.exists(),
@@ -171,8 +281,12 @@ def _doctor(args: argparse.Namespace) -> dict[str, object]:
     }
 
 
-def _service(client: httpx.Client, args: argparse.Namespace, store: StateStore) -> SamsungHealthService:
-    profile = DeviceProfile(model_name="SM-S938B", alias="Hermes Read-Only", country_code="FRA")
+def _service(
+    client: httpx.Client, args: argparse.Namespace, store: StateStore
+) -> SamsungHealthService:
+    profile = DeviceProfile(
+        model_name="SM-S938B", alias="Hermes Read-Only", country_code="FRA"
+    )
     return SamsungHealthService(
         store=store,
         master_state_path=args.master_state,
@@ -184,7 +298,9 @@ def _service(client: httpx.Client, args: argparse.Namespace, store: StateStore) 
 def _catalog(client: httpx.Client, args: argparse.Namespace) -> list[ManifestInfo]:
     manifests = CatalogStore(args.catalog).load()
     if not manifests:
-        raise SamsungHealthCloudError("local Samsung Health manifest catalog is missing")
+        raise SamsungHealthCloudError(
+            "local Samsung Health manifest catalog is missing"
+        )
     return manifests
 
 
@@ -280,7 +396,11 @@ def _export_all(
                 "output": str(result.output_path),
             }
         except (SamsungHealthCloudError, ValueError) as exc:
-            entry = {"manifest_id": manifest.manifest_id, "status": "error", "error": str(exc)}
+            entry = {
+                "manifest_id": manifest.manifest_id,
+                "status": "error",
+                "error": str(exc),
+            }
             results.append(entry)
             _write_private_json(output_dir / "index.json", {"results": results})
             if stop_on_error:
@@ -305,13 +425,19 @@ def _parse_day(value: str | None) -> date:
         raise ValueError("day must use YYYY-MM-DD") from exc
 
 
-def _selected_manifests(manifests: list[ManifestInfo], *, all_types: bool = False) -> list[ManifestInfo]:
+def _selected_manifests(
+    manifests: list[ManifestInfo], *, all_types: bool = False
+) -> list[ManifestInfo]:
     if all_types:
         return manifests
     by_id = {manifest.manifest_id: manifest for manifest in manifests}
-    missing = [manifest_id for manifest_id in CORE_MANIFEST_IDS if manifest_id not in by_id]
+    missing = [
+        manifest_id for manifest_id in CORE_MANIFEST_IDS if manifest_id not in by_id
+    ]
     if missing:
-        raise SamsungHealthCloudError(f"core manifests missing from catalog: {', '.join(missing)}")
+        raise SamsungHealthCloudError(
+            f"core manifests missing from catalog: {', '.join(missing)}"
+        )
     return [by_id[manifest_id] for manifest_id in CORE_MANIFEST_IDS]
 
 
@@ -326,7 +452,9 @@ def _sync_cache(
     force: bool = False,
     max_age_ms: int = 15 * 60 * 1000,
 ) -> dict:
-    return CacheSynchronizer(cache, data_client, cloud_authorization=cloud_authorization).sync(
+    return CacheSynchronizer(
+        cache, data_client, cloud_authorization=cloud_authorization
+    ).sync(
         manifests,
         since_ms=since_ms,
         until_ms=until_ms,
@@ -335,7 +463,9 @@ def _sync_cache(
     )
 
 
-def _report_from_cache(command: str, cache: HealthCache, day_value: str | None = None) -> dict:
+def _report_from_cache(
+    command: str, cache: HealthCache, day_value: str | None = None
+) -> dict:
     analytics = HealthAnalytics(cache)
     if command == "weight":
         return analytics.latest_weight()
@@ -354,11 +484,17 @@ def _report_from_cache(command: str, cache: HealthCache, day_value: str | None =
 def _validate_analysis_options(args: argparse.Namespace, query: str) -> None:
     explicit_interval = bool(args.since or args.until)
     if args.all_history and (explicit_interval or args.period):
-        raise ValueError("--all-history cannot be combined with --since, --until, or --period")
+        raise ValueError(
+            "--all-history cannot be combined with --since, --until, or --period"
+        )
     if explicit_interval and args.period:
         raise ValueError("--period cannot be combined with --since or --until")
-    if args.latest and (explicit_interval or args.period or args.all_history or args.compare):
-        raise ValueError("--latest cannot be combined with interval or comparison options")
+    if args.latest and (
+        explicit_interval or args.period or args.all_history or args.compare
+    ):
+        raise ValueError(
+            "--latest cannot be combined with interval or comparison options"
+        )
     if query in {"sleep", "night", "sleep_analysis"}:
         if explicit_interval or args.period or args.all_history or args.compare:
             raise ValueError("sleep analysis only supports --latest")
@@ -367,7 +503,18 @@ def _validate_analysis_options(args: argparse.Namespace, query: str) -> None:
         raise ValueError("--latest is not supported for activity")
     if query in {"exercise", "workout"} and args.latest:
         raise ValueError("--latest is not supported for exercise")
-    if query not in {"activity", "distance", "steps", "step_daily_trend", "exercise", "workout"} and args.compare:
+    if (
+        query
+        not in {
+            "activity",
+            "distance",
+            "steps",
+            "step_daily_trend",
+            "exercise",
+            "workout",
+        }
+        and args.compare
+    ):
         raise ValueError("--compare is only supported for activity and exercise")
 
 
@@ -386,15 +533,24 @@ def _analysis_bounds(args: argparse.Namespace) -> tuple[int, int]:
     elif args.period == "month":
         start = datetime(now.year, now.month, 1, tzinfo=PARIS)
     else:
-        start = datetime.combine(now.date() - timedelta(days=now.weekday()), datetime.min.time(), PARIS)
+        start = datetime.combine(
+            now.date() - timedelta(days=now.weekday()), datetime.min.time(), PARIS
+        )
     if args.period == "month":
-        end = datetime(start.year + (start.month == 12), 1 if start.month == 12 else start.month + 1, 1, tzinfo=PARIS)
+        end = datetime(
+            start.year + (start.month == 12),
+            1 if start.month == 12 else start.month + 1,
+            1,
+            tzinfo=PARIS,
+        )
     else:
         end = start + timedelta(days=1 if args.period == "day" else 7)
     return int(start.timestamp() * 1000), int(end.timestamp() * 1000) - 1
 
 
-def _analysis_report(args: argparse.Namespace, cache: HealthCache, manifests: list[ManifestInfo]) -> dict:
+def _analysis_report(
+    args: argparse.Namespace, cache: HealthCache, manifests: list[ManifestInfo]
+) -> dict:
     engine = HealthAnalysisEngine(cache)
     query = args.query.lower().replace("-", "_")
     _validate_analysis_options(args, query)
@@ -402,7 +558,9 @@ def _analysis_report(args: argparse.Namespace, cache: HealthCache, manifests: li
         return engine.sleep_latest()
     if query in {"activity", "distance", "steps", "step_daily_trend"}:
         since_ms, until_ms = _analysis_bounds(args)
-        result = engine.activity_interval(since_ms, until_ms, compare_previous=args.compare == "previous")
+        result = engine.activity_interval(
+            since_ms, until_ms, compare_previous=args.compare == "previous"
+        )
         result["period"] = args.period or "week"
         return result
     since_ms, until_ms = _analysis_bounds(args)
@@ -410,7 +568,9 @@ def _analysis_report(args: argparse.Namespace, cache: HealthCache, manifests: li
         result = engine.exercise(since_ms, until_ms)
         if args.compare == "previous" and since_ms > 0 and until_ms < MAX_MS:
             width = until_ms - since_ms + 1
-            result["comparison_previous"] = engine.exercise(since_ms - width, until_ms - width)
+            result["comparison_previous"] = engine.exercise(
+                since_ms - width, until_ms - width
+            )
         return result
     manifest = resolve_manifest(manifests, args.query)
     if args.latest:
@@ -419,18 +579,24 @@ def _analysis_report(args: argparse.Namespace, cache: HealthCache, manifests: li
     result.update({"since_ms": since_ms, "until_ms": until_ms})
     if args.compare == "previous" and since_ms > 0 and until_ms < MAX_MS:
         width = until_ms - since_ms + 1
-        result["comparison_previous"] = engine.generic(manifest.manifest_id, since_ms - width, until_ms - width)
+        result["comparison_previous"] = engine.generic(
+            manifest.manifest_id, since_ms - width, until_ms - width
+        )
     return result
 
 
-def _schema_report(cache: HealthCache, manifests: list[ManifestInfo], query: str | None) -> dict:
+def _schema_report(
+    cache: HealthCache, manifests: list[ManifestInfo], query: str | None
+) -> dict:
     """Prove that every observed manifest/field pair is documented or safely summarized."""
     if query:
         manifest = resolve_manifest(manifests, query)
         result = HealthAnalysisEngine(cache).generic(manifest.manifest_id, 0, MAX_MS)
         result["schema_revision"] = manifest.schema_revision
         return result
-    observed = official_count = convention_count = apk_count = open_source_count = manifests_with_records = 0
+    observed = official_count = convention_count = apk_count = open_source_count = (
+        manifests_with_records
+    ) = 0
     per_manifest = []
     for manifest in manifests:
         inventory = cache.manifest_inventory(manifest.manifest_id)
@@ -439,7 +605,10 @@ def _schema_report(cache: HealthCache, manifests: list[ManifestInfo], query: str
             continue
         manifests_with_records += 1
         statuses = [
-            (field_semantics(manifest.manifest_id, field) or {"provenance": {"status": "raw_observed"}})["provenance"]["status"]
+            (
+                field_semantics(manifest.manifest_id, field)
+                or {"provenance": {"status": "raw_observed"}}
+            )["provenance"]["status"]
             for field in fields
         ]
         official = statuses.count("official_documentation")
@@ -452,17 +621,21 @@ def _schema_report(cache: HealthCache, manifests: list[ManifestInfo], query: str
         convention_count += convention
         apk_count += apk
         open_source_count += open_source
-        per_manifest.append({
-            "manifest_id": manifest.manifest_id,
-            "observed_fields": len(fields),
-            "officially_documented_fields": official,
-            "official_schema_convention_fields": convention,
-            "apk_documented_fields": apk,
-            "open_source_documented_fields": open_source,
-            "raw_fallback_fields": raw,
-            "ignored_fields": 0,
-        })
-    raw_count = observed - official_count - convention_count - apk_count - open_source_count
+        per_manifest.append(
+            {
+                "manifest_id": manifest.manifest_id,
+                "observed_fields": len(fields),
+                "officially_documented_fields": official,
+                "official_schema_convention_fields": convention,
+                "apk_documented_fields": apk,
+                "open_source_documented_fields": open_source,
+                "raw_fallback_fields": raw,
+                "ignored_fields": 0,
+            }
+        )
+    raw_count = (
+        observed - official_count - convention_count - apk_count - open_source_count
+    )
     return {
         "catalog_manifests": len(manifests),
         "manifests_with_records": manifests_with_records,
@@ -501,12 +674,20 @@ def main(argv: list[str] | None = None) -> int:
         try:
             cache = HealthCache(args.cache)
             statuses = cache.all_sync_status()
-            unavailable = [item for item in statuses if item["error"] == "unavailable: HTTP 404"]
-            failures = [item for item in statuses if item["error"] and item["error"] != "unavailable: HTTP 404"]
+            unavailable = [
+                item for item in statuses if item["error"] == "unavailable: HTTP 404"
+            ]
+            failures = [
+                item
+                for item in statuses
+                if item["error"] and item["error"] != "unavailable: HTTP 404"
+            ]
             result = {
                 "cache": str(args.cache),
                 "manifests": len(statuses),
-                "last_sync_ms": max((item["last_sync_ms"] for item in statuses), default=None),
+                "last_sync_ms": max(
+                    (item["last_sync_ms"] for item in statuses), default=None
+                ),
                 "unavailable_manifests": len(unavailable),
                 "failed_manifests": len(failures),
                 "errors": failures,
@@ -518,30 +699,48 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: {exc}", file=sys.stderr)
             return 2
 
-    if args.command in {"types", "inventory", "schema"} or (args.command in {"data", "analyze"} and args.no_sync):
+    if args.command in {"types", "inventory", "schema"} or (
+        args.command in {"data", "analyze"} and args.no_sync
+    ):
         try:
             cache = HealthCache(args.cache)
             manifests = CatalogStore(args.catalog).load()
             if args.command == "analyze":
-                print(json.dumps(_analysis_report(args, cache, manifests), ensure_ascii=False, sort_keys=True))
+                print(
+                    json.dumps(
+                        _analysis_report(args, cache, manifests),
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                )
                 return 0
             if args.command == "schema":
-                print(json.dumps(_schema_report(cache, manifests, args.query), ensure_ascii=False, sort_keys=True))
+                print(
+                    json.dumps(
+                        _schema_report(cache, manifests, args.query),
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                )
                 return 0
             if args.command == "types":
                 needle = args.filter.lower()
-                status_by_id = {item["manifest_id"]: item for item in cache.all_sync_status()}
+                status_by_id = {
+                    item["manifest_id"]: item for item in cache.all_sync_status()
+                }
                 payload = []
                 for manifest in manifests:
                     if needle not in manifest.manifest_id.lower():
                         continue
                     status = status_by_id.get(manifest.manifest_id, {})
-                    payload.append({
-                        "manifest_id": manifest.manifest_id,
-                        "schema_revision": manifest.schema_revision,
-                        "records": status.get("record_count", 0),
-                        "sync_error": status.get("error"),
-                    })
+                    payload.append(
+                        {
+                            "manifest_id": manifest.manifest_id,
+                            "schema_revision": manifest.schema_revision,
+                            "records": status.get("record_count", 0),
+                            "sync_error": status.get("error"),
+                        }
+                    )
                 print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
                 return 0
             if args.command == "inventory":
@@ -552,31 +751,57 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     statuses = cache.all_sync_status()
                     payload = cache.global_inventory()
-                    unavailable = [item for item in statuses if item["error"] == "unavailable: HTTP 404"]
-                    failures = [item for item in statuses if item["error"] and item["error"] != "unavailable: HTTP 404"]
-                    payload.update({
-                        "catalog_manifests": len(manifests),
-                        "synced_manifests": len(statuses),
-                        "unavailable_manifests": len(unavailable),
-                        "failed_manifests": len(failures),
-                        "unavailable": unavailable,
-                        "errors": failures,
-                    })
+                    unavailable = [
+                        item
+                        for item in statuses
+                        if item["error"] == "unavailable: HTTP 404"
+                    ]
+                    failures = [
+                        item
+                        for item in statuses
+                        if item["error"] and item["error"] != "unavailable: HTTP 404"
+                    ]
+                    payload.update(
+                        {
+                            "catalog_manifests": len(manifests),
+                            "synced_manifests": len(statuses),
+                            "unavailable_manifests": len(unavailable),
+                            "failed_manifests": len(failures),
+                            "unavailable": unavailable,
+                            "errors": failures,
+                        }
+                    )
                 print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
                 return 0
             manifest = resolve_manifest(manifests, args.query)
             since_ms = parse_instant_ms(args.since) if args.since else 0
-            until_ms = parse_until_ms(args.until) if args.until else 9_223_372_036_854_775_807
-            rows = cache.envelopes(manifest.manifest_id, since_ms=since_ms, until_ms=until_ms, limit=args.limit, offset=args.offset)
+            until_ms = (
+                parse_until_ms(args.until) if args.until else 9_223_372_036_854_775_807
+            )
+            rows = cache.envelopes(
+                manifest.manifest_id,
+                since_ms=since_ms,
+                until_ms=until_ms,
+                limit=args.limit,
+                offset=args.offset,
+            )
             if not args.envelope:
                 rows = [row.get("data") for row in rows]
-            print(json.dumps({
-                "manifest_id": manifest.manifest_id,
-                "offset": args.offset,
-                "count": len(rows),
-                "next_offset": args.offset + len(rows) if len(rows) == args.limit else None,
-                "records": rows,
-            }, ensure_ascii=False, sort_keys=True))
+            print(
+                json.dumps(
+                    {
+                        "manifest_id": manifest.manifest_id,
+                        "offset": args.offset,
+                        "count": len(rows),
+                        "next_offset": args.offset + len(rows)
+                        if len(rows) == args.limit
+                        else None,
+                        "records": rows,
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
             return 0
         except (SamsungHealthCloudError, ValueError, OSError) as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -587,16 +812,41 @@ def main(argv: list[str] | None = None) -> int:
             if args.command == "manifests":
                 manifests = _catalog(client, args)
                 if args.manifests_command == "list":
-                    selected = [item for item in manifests if args.filter.lower() in item.manifest_id.lower()]
-                    print(json.dumps([asdict(item) for item in selected], ensure_ascii=False, indent=2, sort_keys=True))
+                    selected = [
+                        item
+                        for item in manifests
+                        if args.filter.lower() in item.manifest_id.lower()
+                    ]
+                    print(
+                        json.dumps(
+                            [asdict(item) for item in selected],
+                            ensure_ascii=False,
+                            indent=2,
+                            sort_keys=True,
+                        )
+                    )
                 else:
-                    print(json.dumps(asdict(_find_manifest(manifests, args.manifest_id)), indent=2, sort_keys=True))
+                    print(
+                        json.dumps(
+                            asdict(_find_manifest(manifests, args.manifest_id)),
+                            indent=2,
+                            sort_keys=True,
+                        )
+                    )
                 return 0
 
             report_commands = {"summary", "steps", "sleep", "heart-rate", "weight"}
             if args.command in report_commands and args.no_sync:
                 cache = HealthCache(args.cache)
-                print(json.dumps(_report_from_cache(args.command, cache, getattr(args, "day", None)), ensure_ascii=False, sort_keys=True))
+                print(
+                    json.dumps(
+                        _report_from_cache(
+                            args.command, cache, getattr(args, "day", None)
+                        ),
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                )
                 return 0
 
             state = _service(client, args, store).initialize()
@@ -620,7 +870,13 @@ def main(argv: list[str] | None = None) -> int:
                 cache = HealthCache(args.cache)
                 query = args.query.lower().replace("-", "_")
                 if query in {"sleep", "night", "sleep_analysis"}:
-                    ids = {"com.samsung.health.sleep", "com.samsung.health.sleep_stage", "com.samsung.health.heart_rate", "com.samsung.health.oxygen_saturation", "com.samsung.shealth.sleep_snoring"}
+                    ids = {
+                        "com.samsung.health.sleep",
+                        "com.samsung.health.sleep_stage",
+                        "com.samsung.health.heart_rate",
+                        "com.samsung.health.oxygen_saturation",
+                        "com.samsung.shealth.sleep_snoring",
+                    }
                 elif query in {"activity", "distance", "steps", "step_daily_trend"}:
                     ids = {"com.samsung.shealth.step_daily_trend"}
                 elif query in {"exercise", "workout"}:
@@ -632,12 +888,27 @@ def main(argv: list[str] | None = None) -> int:
                 if query in {"sleep", "night", "sleep_analysis"}:
                     since_ms = int(time.time() * 1000) - 3 * 86_400_000
                     until_ms = int(time.time() * 1000)
-                elif query in {"activity", "distance", "steps", "step_daily_trend"} and args.compare == "previous":
+                elif (
+                    query in {"activity", "distance", "steps", "step_daily_trend"}
+                    and args.compare == "previous"
+                ):
                     since_ms = int(time.time() * 1000) - 15 * 86_400_000
-                _sync_cache(cache=cache, data_client=data_client, cloud_authorization=state.cloud_token,
-                            manifests=selected, since_ms=None if args.all_history else since_ms,
-                            until_ms=until_ms, max_age_ms=15 * 60 * 1000)
-                print(json.dumps(_analysis_report(args, cache, manifests), ensure_ascii=False, sort_keys=True))
+                _sync_cache(
+                    cache=cache,
+                    data_client=data_client,
+                    cloud_authorization=state.cloud_token,
+                    manifests=selected,
+                    since_ms=None if args.all_history else since_ms,
+                    until_ms=until_ms,
+                    max_age_ms=15 * 60 * 1000,
+                )
+                print(
+                    json.dumps(
+                        _analysis_report(args, cache, manifests),
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                )
                 return 0
             if args.command == "data":
                 cache = HealthCache(args.cache)
@@ -649,7 +920,11 @@ def main(argv: list[str] | None = None) -> int:
                     since_ms = None
                 else:
                     since_ms = int(time.time() * 1000) - 30 * 86_400_000
-                until_ms = parse_until_ms(args.until) if args.until else int(time.time() * 1000)
+                until_ms = (
+                    parse_until_ms(args.until)
+                    if args.until
+                    else int(time.time() * 1000)
+                )
                 _sync_cache(
                     cache=cache,
                     data_client=data_client,
@@ -659,7 +934,11 @@ def main(argv: list[str] | None = None) -> int:
                     until_ms=until_ms,
                 )
                 query_since = parse_instant_ms(args.since) if args.since else 0
-                query_until = parse_until_ms(args.until) if args.until else 9_223_372_036_854_775_807
+                query_until = (
+                    parse_until_ms(args.until)
+                    if args.until
+                    else 9_223_372_036_854_775_807
+                )
                 rows = cache.envelopes(
                     manifest.manifest_id,
                     since_ms=query_since,
@@ -669,13 +948,21 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 if not args.envelope:
                     rows = [row.get("data") for row in rows]
-                print(json.dumps({
-                    "manifest_id": manifest.manifest_id,
-                    "offset": args.offset,
-                    "count": len(rows),
-                    "next_offset": args.offset + len(rows) if len(rows) == args.limit else None,
-                    "records": rows,
-                }, ensure_ascii=False, sort_keys=True))
+                print(
+                    json.dumps(
+                        {
+                            "manifest_id": manifest.manifest_id,
+                            "offset": args.offset,
+                            "count": len(rows),
+                            "next_offset": args.offset + len(rows)
+                            if len(rows) == args.limit
+                            else None,
+                            "records": rows,
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                )
                 return 0
 
             if args.command == "sync":
@@ -699,9 +986,17 @@ def main(argv: list[str] | None = None) -> int:
 
             if args.command in report_commands:
                 cache = HealthCache(args.cache)
-                day = _parse_day(getattr(args, "day", None)) if args.command != "weight" else datetime.now(PARIS).date()
-                window_start = datetime.combine(day - timedelta(days=1), datetime.min.time(), PARIS)
-                window_end = datetime.combine(day + timedelta(days=1), datetime.min.time(), PARIS)
+                day = (
+                    _parse_day(getattr(args, "day", None))
+                    if args.command != "weight"
+                    else datetime.now(PARIS).date()
+                )
+                window_start = datetime.combine(
+                    day - timedelta(days=1), datetime.min.time(), PARIS
+                )
+                window_end = datetime.combine(
+                    day + timedelta(days=1), datetime.min.time(), PARIS
+                )
                 selected_ids = {
                     "steps": (STEP_DAILY,),
                     "sleep": (SLEEP,),
@@ -709,8 +1004,16 @@ def main(argv: list[str] | None = None) -> int:
                     "weight": (WEIGHT,),
                     "summary": CORE_MANIFEST_IDS,
                 }[args.command]
-                selected = [manifest for manifest in _selected_manifests(manifests) if manifest.manifest_id in selected_ids]
-                since_ms = 0 if args.command == "weight" and cache.total_records(WEIGHT) == 0 else int(window_start.timestamp() * 1000)
+                selected = [
+                    manifest
+                    for manifest in _selected_manifests(manifests)
+                    if manifest.manifest_id in selected_ids
+                ]
+                since_ms = (
+                    0
+                    if args.command == "weight" and cache.total_records(WEIGHT) == 0
+                    else int(window_start.timestamp() * 1000)
+                )
                 _sync_cache(
                     cache=cache,
                     data_client=data_client,
@@ -719,13 +1022,25 @@ def main(argv: list[str] | None = None) -> int:
                     since_ms=since_ms,
                     until_ms=int(window_end.timestamp() * 1000),
                 )
-                print(json.dumps(_report_from_cache(args.command, cache, getattr(args, "day", None)), ensure_ascii=False, sort_keys=True))
+                print(
+                    json.dumps(
+                        _report_from_cache(
+                            args.command, cache, getattr(args, "day", None)
+                        ),
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                )
                 return 0
 
             if args.command == "read":
                 manifest = _find_manifest(manifests, args.manifest_id)
                 since_ms, until_ms = _time_bounds(args)
-                if args.page_size < 1 or args.page_size > 1000 or (not args.all and args.limit < 1):
+                if (
+                    args.page_size < 1
+                    or args.page_size > 1000
+                    or (not args.all and args.limit < 1)
+                ):
                     raise ValueError("limits must be between 1 and 1000")
                 records = data_client.iter_documents(
                     manifest_id=manifest.manifest_id,
@@ -737,14 +1052,18 @@ def main(argv: list[str] | None = None) -> int:
                     end_time=until_ms,
                 )
                 filtered = filter_records(records, since_ms=since_ms, until_ms=until_ms)
-                _emit_records(_limited(filtered, None if args.all else args.limit), args.format)
+                _emit_records(
+                    _limited(filtered, None if args.all else args.limit), args.format
+                )
                 return 0
 
             exporter = JsonlExporter()
             if args.command == "export":
                 manifest = _find_manifest(manifests, args.manifest_id)
                 since_ms, until_ms = _time_bounds(args)
-                output = args.output or (DEFAULT_EXPORT_ROOT / f"{manifest.manifest_id}.jsonl")
+                output = args.output or (
+                    DEFAULT_EXPORT_ROOT / f"{manifest.manifest_id}.jsonl"
+                )
                 result = exporter.export_manifest(
                     data_client=data_client,
                     manifest=manifest,
@@ -755,7 +1074,16 @@ def main(argv: list[str] | None = None) -> int:
                     since_ms=since_ms,
                     until_ms=until_ms,
                 )
-                print(json.dumps({"output": str(result.output_path), "records": result.record_count, "pages": result.page_count}, sort_keys=True))
+                print(
+                    json.dumps(
+                        {
+                            "output": str(result.output_path),
+                            "records": result.record_count,
+                            "pages": result.page_count,
+                        },
+                        sort_keys=True,
+                    )
+                )
                 return 0
 
             since_ms, until_ms = _time_bounds(args)

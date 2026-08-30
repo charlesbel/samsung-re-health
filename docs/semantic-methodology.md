@@ -58,9 +58,9 @@ APK analysé :
 
 Artefacts locaux :
 
-- provenance : `/home/hermes/projects/samsung-health-research/apk/provenance.json` ;
-- sources : `/home/hermes/projects/samsung-health-research/apk/jadx-7006003/sources/` ;
-- journaux : `/home/hermes/projects/samsung-health-research/apk/jadx-7006003/logs/`.
+- paquet source : `com.sec.android.app.shealth` ;
+- version : `7.00.6.003` ;
+- décompilateur : JADX 1.5.6 (analyses statiques isolées).
 
 JADX a signalé 333 erreurs de méthodes sur l’ensemble très obfusqué. Une constante ou une chaîne n’est donc pas suffisante à elle seule pour inventer une unité. Le registre n’accepte une sémantique APK que lorsqu’un chemin de lecture/calcul clair existe. Exemples acceptés :
 

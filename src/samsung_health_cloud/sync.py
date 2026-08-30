@@ -3,8 +3,8 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Iterable
 
-from .cache import HealthCache
 from .auth import SamsungHealthCloudError
+from .cache import HealthCache
 from .catalog import ManifestInfo
 
 
@@ -69,11 +69,15 @@ class CacheSynchronizer:
                         seen_ids.add(self.cache.document_id(envelope))
                     batch.append(envelope)
                     if len(batch) >= 1000:
-                        fetched += self.cache.upsert_documents(manifest.manifest_id, batch)
+                        fetched += self.cache.upsert_documents(
+                            manifest.manifest_id, batch
+                        )
                         batch.clear()
                 fetched += self.cache.upsert_documents(manifest.manifest_id, batch)
                 if seen_ids is not None:
-                    result["pruned_records"] += self.cache.prune_manifest_except(manifest.manifest_id, seen_ids)
+                    result["pruned_records"] += self.cache.prune_manifest_except(
+                        manifest.manifest_id, seen_ids
+                    )
                 self.cache.mark_synced(
                     manifest.manifest_id,
                     schema_revision=manifest.schema_revision,
@@ -103,8 +107,10 @@ class CacheSynchronizer:
                     error=message,
                 )
                 result["failed_manifests"] += 1
-                result["errors"].append({"manifest_id": manifest.manifest_id, "error": message})
-            except Exception as exc:  # per-manifest isolation; never include request/token details
+                result["errors"].append(
+                    {"manifest_id": manifest.manifest_id, "error": message}
+                )
+            except Exception as exc:  # noqa: BLE001 - per-manifest isolation; never include request/token details
                 message = f"{type(exc).__name__}: sync failed"
                 self.cache.mark_synced(
                     manifest.manifest_id,
@@ -114,5 +120,7 @@ class CacheSynchronizer:
                     error=message,
                 )
                 result["failed_manifests"] += 1
-                result["errors"].append({"manifest_id": manifest.manifest_id, "error": message})
+                result["errors"].append(
+                    {"manifest_id": manifest.manifest_id, "error": message}
+                )
         return result

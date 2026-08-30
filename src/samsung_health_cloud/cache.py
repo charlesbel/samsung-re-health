@@ -4,8 +4,8 @@ import hashlib
 import json
 import os
 import sqlite3
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 
 class HealthCache:
@@ -59,12 +59,16 @@ class HealthCache:
             )
             columns = {row[1] for row in db.execute("PRAGMA table_info(documents)")}
             if "has_files" not in columns:
-                db.execute("ALTER TABLE documents ADD COLUMN has_files INTEGER NOT NULL DEFAULT 0")
+                db.execute(
+                    "ALTER TABLE documents ADD COLUMN has_files INTEGER NOT NULL DEFAULT 0"
+                )
                 db.execute(
                     "UPDATE documents SET has_files = CASE WHEN json_array_length(json_extract(envelope_json, '$.files')) > 0 THEN 1 ELSE 0 END"
                 )
             if "has_download_urls" not in columns:
-                db.execute("ALTER TABLE documents ADD COLUMN has_download_urls INTEGER NOT NULL DEFAULT 0")
+                db.execute(
+                    "ALTER TABLE documents ADD COLUMN has_download_urls INTEGER NOT NULL DEFAULT 0"
+                )
                 db.execute(
                     "UPDATE documents SET has_download_urls = CASE WHEN json_array_length(json_extract(envelope_json, '$.downloadUrls')) > 0 THEN 1 ELSE 0 END"
                 )
@@ -86,14 +90,21 @@ class HealthCache:
     @classmethod
     def document_id(cls, envelope: dict) -> str:
         data = envelope.get("data") if isinstance(envelope.get("data"), dict) else {}
-        data_json = json.dumps(data, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        data_json = json.dumps(
+            data, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+        )
         return cls._document_id(envelope, data_json)
 
     def prune_manifest_except(self, manifest_id: str, keep_ids: Iterable[str]) -> int:
         with self._connect() as db:
-            db.execute("CREATE TEMP TABLE IF NOT EXISTS sync_keep_ids(document_id TEXT PRIMARY KEY)")
+            db.execute(
+                "CREATE TEMP TABLE IF NOT EXISTS sync_keep_ids(document_id TEXT PRIMARY KEY)"
+            )
             db.execute("DELETE FROM sync_keep_ids")
-            db.executemany("INSERT OR IGNORE INTO sync_keep_ids(document_id) VALUES (?)", ((item,) for item in keep_ids))
+            db.executemany(
+                "INSERT OR IGNORE INTO sync_keep_ids(document_id) VALUES (?)",
+                ((item,) for item in keep_ids),
+            )
             cursor = db.execute(
                 "DELETE FROM documents WHERE manifest_id = ? AND document_id NOT IN (SELECT document_id FROM sync_keep_ids)",
                 (manifest_id,),
@@ -103,21 +114,43 @@ class HealthCache:
     def upsert_documents(self, manifest_id: str, envelopes: Iterable[dict]) -> int:
         rows = []
         for envelope in envelopes:
-            data = envelope.get("data") if isinstance(envelope.get("data"), dict) else {}
-            data_json = json.dumps(data, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+            data = (
+                envelope.get("data") if isinstance(envelope.get("data"), dict) else {}
+            )
+            data_json = json.dumps(
+                data, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+            )
             rows.append(
                 (
                     manifest_id,
                     self._document_id(envelope, data_json),
-                    data.get("start_time", data.get("day_time", data.get("create_time"))),
-                    data.get("end_time", data.get("start_time", data.get("day_time", data.get("create_time")))),
+                    data.get(
+                        "start_time", data.get("day_time", data.get("create_time"))
+                    ),
+                    data.get(
+                        "end_time",
+                        data.get(
+                            "start_time", data.get("day_time", data.get("create_time"))
+                        ),
+                    ),
                     data.get("create_time"),
                     data.get("update_time", data.get("create_time")),
                     data_json,
-                    json.dumps(envelope, ensure_ascii=False, separators=(",", ":"), sort_keys=True),
+                    json.dumps(
+                        envelope,
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    ),
                     int(envelope.get("needToDecrypt") is True),
-                    int(isinstance(envelope.get("files"), list) and bool(envelope["files"])),
-                    int(isinstance(envelope.get("downloadUrls"), list) and bool(envelope["downloadUrls"])),
+                    int(
+                        isinstance(envelope.get("files"), list)
+                        and bool(envelope["files"])
+                    ),
+                    int(
+                        isinstance(envelope.get("downloadUrls"), list)
+                        and bool(envelope["downloadUrls"])
+                    ),
                 )
             )
         if not rows:
@@ -243,7 +276,9 @@ class HealthCache:
             "records": int(summary["records"] or 0),
             "encrypted_records": int(summary["encrypted_records"] or 0),
             "records_with_files": int(summary["records_with_files"] or 0),
-            "records_with_download_urls": int(summary["records_with_download_urls"] or 0),
+            "records_with_download_urls": int(
+                summary["records_with_download_urls"] or 0
+            ),
             "earliest_ms": summary["earliest_ms"],
             "latest_ms": summary["latest_ms"],
             "fields": [row["key"] for row in field_rows],
@@ -261,7 +296,7 @@ class HealthCache:
                 FROM documents
                 """
             ).fetchone()
-        return {key: int(row[key] or 0) for key in row.keys()}
+        return {key: int(row[key] or 0) for key in row.keys()}  # noqa: SIM118
 
     def all_sync_status(self) -> list[dict]:
         with self._connect() as db:

@@ -1,5 +1,5 @@
-from datetime import datetime
 import math
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -13,11 +13,25 @@ def test_parse_instant_and_filter_records_by_overlapping_interval():
     assert parse_instant_ms("2026-01-01") == expected
 
     records = [
-        {"data": {"start_time": expected - 1000, "end_time": expected + 1000, "count": 1}},
-        {"data": {"start_time": expected + 2000, "end_time": expected + 3000, "count": 2}},
+        {
+            "data": {
+                "start_time": expected - 1000,
+                "end_time": expected + 1000,
+                "count": 1,
+            }
+        },
+        {
+            "data": {
+                "start_time": expected + 2000,
+                "end_time": expected + 3000,
+                "count": 2,
+            }
+        },
         {"data": {"create_time": expected + 4000, "count": 3}},
     ]
-    selected = list(filter_records(records, since_ms=expected, until_ms=expected + 2500))
+    selected = list(
+        filter_records(records, since_ms=expected, until_ms=expected + 2500)
+    )
     assert [record["data"]["count"] for record in selected] == [1, 2]
 
     with pytest.raises(ValueError, match="ISO-8601"):

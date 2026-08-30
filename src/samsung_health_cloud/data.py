@@ -37,7 +37,9 @@ class CloudDataClient:
             raise ValueError("schema revision must be non-negative")
         if e2ee_state not in _E2EE_HEADERS:
             raise ValueError("invalid E2EE state")
-        if (start_time is not None and start_time < 0) or (end_time is not None and end_time < 0):
+        if (start_time is not None and start_time < 0) or (
+            end_time is not None and end_time < 0
+        ):
             raise ValueError("time bounds must be non-negative")
         if start_time is not None and end_time is not None and start_time > end_time:
             raise ValueError("start time must not be after end time")
@@ -66,7 +68,9 @@ class CloudDataClient:
             ),
         )
         if response.status_code != 200:
-            raise SamsungHealthCloudError(f"document GET failed with HTTP {response.status_code}")
+            raise SamsungHealthCloudError(
+                f"document GET failed with HTTP {response.status_code}"
+            )
         try:
             payload = response.json()
         except ValueError as exc:
@@ -102,11 +106,17 @@ class CloudDataClient:
             )
             documents = payload.get("documents")
             if not isinstance(documents, list):
-                raise SamsungHealthCloudError("document GET response is missing its documents list")
+                raise SamsungHealthCloudError(
+                    "document GET response is missing its documents list"
+                )
             has_next = payload.get("hasNext") is True
             next_page_token = payload.get("nextPageToken") if has_next else None
-            if has_next and (not isinstance(next_page_token, str) or not next_page_token):
-                raise SamsungHealthCloudError("document GET response is missing its next page token")
+            if has_next and (
+                not isinstance(next_page_token, str) or not next_page_token
+            ):
+                raise SamsungHealthCloudError(
+                    "document GET response is missing its next page token"
+                )
             if next_page_token is not None and next_page_token in seen_tokens:
                 raise SamsungHealthCloudError("document pagination loop detected")
             yield payload

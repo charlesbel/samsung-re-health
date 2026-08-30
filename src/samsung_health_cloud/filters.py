@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 import math
-from typing import Iterable, Iterator
+from collections.abc import Iterable, Iterator
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 
@@ -20,7 +20,11 @@ def parse_instant_ms(value: str, *, timezone: str = "Europe/Paris") -> int:
 def parse_until_ms(value: str, *, timezone: str = "Europe/Paris") -> int:
     if len(value) == 10:
         try:
-            end_of_day = datetime.fromisoformat(value) + timedelta(days=1) - timedelta(milliseconds=1)
+            end_of_day = (
+                datetime.fromisoformat(value)
+                + timedelta(days=1)
+                - timedelta(milliseconds=1)
+            )
         except ValueError as exc:
             raise ValueError("time filters must use ISO-8601") from exc
         return int(end_of_day.replace(tzinfo=ZoneInfo(timezone)).timestamp() * 1000)
@@ -55,7 +59,7 @@ def filter_records(
             continue
         data = record.get("data") if isinstance(record, dict) else None
         if not isinstance(data, dict):
-            raise ValueError("filtered record is missing a timestamp")
+            raise ValueError("filtered record is missing a timestamp")  # noqa: TRY004
         start = _number(data.get("start_time"))
         if start is None:
             start = _number(data.get("create_time"))

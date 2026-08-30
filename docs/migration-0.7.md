@@ -1,0 +1,33 @@
+# Migration Guide: 0.6.x to 0.7.0
+
+## Key Changes in 0.7.0
+
+### 1. Shared Master State v1 Contract
+- Samsung Health Cloud now reads credentials from the shared neutral `master.json` file located by default at:
+  - Linux: `~/.config/samsung-account/master.json` (or `$XDG_CONFIG_HOME/samsung-account/master.json`)
+  - macOS: `~/Library/Application Support/samsung-account/master.json`
+  - Windows: `%APPDATA%\samsung-account\master.json`
+- **Backward Compatibility**: If `master.json` is not found, the client safely falls back to reading the legacy Find authentication state at `~/.config/samsung-find/state.json` without requiring re-login.
+
+### 2. Primary CLI Executable Name
+- The recommended CLI command is now `samsung-health`.
+- The previous command name `samsung-health-cloud` remains available as an alias during the 0.7.x lifecycle and emits a deprecation warning to `stderr`.
+
+### 3. Configurable Timezone & Defaults
+- In 0.6.x, the timezone defaulted implicitly to `Europe/Paris`.
+- In 0.7.0, the public default timezone is `UTC`.
+- Users and scripts wishing to use a local timezone can pass `--timezone Europe/Paris` or set the `SAMSUNG_HEALTH_TIMEZONE` environment variable.
+
+### 4. Machine-Readable JSON Output by Default
+- CLI commands output versioned JSON envelopes (`{"ok": true, "schema_version": "1.0", "data": ...}`) by default on `stdout`.
+- Exit codes now adhere to standard exit statuses:
+  - `0`: Success
+  - `2`: Invalid argument or usage error
+  - `3`: Authentication required or invalid credentials
+  - `4`: Remote network or protocol error
+  - `5`: Permission or local filesystem error
+  - `6`: Partial result
+
+### 5. Bundled Runtime Catalog
+- In 0.6.x, commands failed if no local manifest catalog had been created.
+- In 0.7.0, a bundled baseline catalog covers all standard data types (`sleep`, `heart_rate`, `oxygen_saturation`, `exercise`, `steps`, `weight`, etc.) out of the box.

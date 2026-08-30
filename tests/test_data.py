@@ -15,7 +15,9 @@ def test_list_documents_is_a_bounded_get_with_cloud_auth():
         assert request.url.params["end_time"] == "2000"
         assert request.headers["authorization"] == "Bearer cloud-secret"
         assert request.headers["x-sc-e2ee-state"] == "OFF"
-        return httpx.Response(200, json={"items": [{"uuid": "record-1"}], "pageToken": "next"})
+        return httpx.Response(
+            200, json={"items": [{"uuid": "record-1"}], "pageToken": "next"}
+        )
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         payload = CloudDataClient(client).list_documents(
@@ -37,9 +39,21 @@ def test_iter_documents_follows_all_pages_and_detects_pagination_loops():
         token = request.url.params.get("pageToken")
         requested_tokens.append(token)
         pages = {
-            None: {"documents": [{"data": {"count": 1}}], "hasNext": True, "nextPageToken": "p2"},
-            "p2": {"documents": [{"data": {"count": 2}}], "hasNext": True, "nextPageToken": "p3"},
-            "p3": {"documents": [{"data": {"count": 3}}], "hasNext": False, "nextPageToken": ""},
+            None: {
+                "documents": [{"data": {"count": 1}}],
+                "hasNext": True,
+                "nextPageToken": "p2",
+            },
+            "p2": {
+                "documents": [{"data": {"count": 2}}],
+                "hasNext": True,
+                "nextPageToken": "p3",
+            },
+            "p3": {
+                "documents": [{"data": {"count": 3}}],
+                "hasNext": False,
+                "nextPageToken": "",
+            },
         }
         return httpx.Response(200, json=pages[token])
 
@@ -61,21 +75,28 @@ def test_iter_documents_follows_all_pages_and_detects_pagination_loops():
             json={"documents": [], "hasNext": True, "nextPageToken": "same"},
         )
 
-    with httpx.Client(transport=httpx.MockTransport(looping_handler)) as client:
-        with pytest.raises(SamsungHealthCloudError, match="pagination loop"):
-            pages = CloudDataClient(client).iter_pages(
-                manifest_id="com.samsung.health.sleep",
-                schema_revision=18,
-                cloud_authorization="Bearer cloud-secret",
-                start_page_token="same",
-            )
-            next(pages)
+    with (
+        httpx.Client(transport=httpx.MockTransport(looping_handler)) as client,
+        pytest.raises(SamsungHealthCloudError, match="pagination loop"),
+    ):
+        pages = CloudDataClient(client).iter_pages(
+            manifest_id="com.samsung.health.sleep",
+            schema_revision=18,
+            cloud_authorization="Bearer cloud-secret",
+            start_page_token="same",
+        )
+        next(pages)
 
 
 def test_list_documents_rejects_unsafe_manifest_and_large_limit():
-    with httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(500))) as client:
+    with httpx.Client(
+        transport=httpx.MockTransport(lambda request: httpx.Response(500))
+    ) as client:
         data = CloudDataClient(client)
-        for manifest_id, limit in (("../tokens", 1), ("com.samsung.health.step_count", 1001)):
+        for manifest_id, limit in (
+            ("../tokens", 1),
+            ("com.samsung.health.step_count", 1001),
+        ):
             try:
                 data.list_documents(
                     manifest_id=manifest_id,

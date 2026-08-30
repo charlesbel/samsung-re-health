@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://charlesbel.github.io/schemas/samsung-health-cloud/cli/v1/error-envelope.schema.json",
+  "title": "CliErrorEnvelopeV1",
+  "type": "object",
+  "required": ["ok", "schema_version", "error"],
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "const": false
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

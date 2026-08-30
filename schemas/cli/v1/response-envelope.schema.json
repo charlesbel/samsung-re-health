@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://charlesbel.github.io/schemas/samsung-health-cloud/cli/v1/response-envelope.schema.json",
+  "title": "CliResponseEnvelopeV1",
+  "type": "object",
+  "required": ["ok", "schema_version", "data"],
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "const": true
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "data": {},
+    "meta": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

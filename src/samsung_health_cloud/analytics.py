@@ -17,17 +17,20 @@ def _ms(value: datetime) -> int:
     return int(value.timestamp() * 1000)
 
 
-def _day_bounds(day: date) -> tuple[int, int]:
-    start = datetime.combine(day, time.min, PARIS)
+def _day_bounds(day: date, tz: ZoneInfo = PARIS) -> tuple[int, int]:
+    start = datetime.combine(day, time.min, tz)
     return _ms(start), _ms(start + timedelta(days=1)) - 1
 
 
 class HealthAnalytics:
-    def __init__(self, cache: HealthCache) -> None:
+    def __init__(
+        self, cache: HealthCache, *, timezone: str | ZoneInfo = "Europe/Paris"
+    ) -> None:
         self.cache = cache
+        self.tz = ZoneInfo(timezone) if isinstance(timezone, str) else timezone
 
     def steps(self, day: date) -> dict:
-        since, until = _day_bounds(day)
+        since, until = _day_bounds(day, self.tz)
         records = self.cache.records(STEP_DAILY, since_ms=since, until_ms=until)
         if not records:
             return {
@@ -129,7 +132,7 @@ class HealthAnalytics:
         }
 
     def heart_rate(self, day: date) -> dict:
-        since, until = _day_bounds(day)
+        since, until = _day_bounds(day, self.tz)
         records = self.cache.records(HEART_RATE, since_ms=since, until_ms=until)
         values = [
             float(row["heart_rate"])

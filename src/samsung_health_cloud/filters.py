@@ -6,18 +6,20 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 
-def parse_instant_ms(value: str, *, timezone: str = "Europe/Paris") -> int:
+def parse_instant_ms(value: str, *, timezone: str | ZoneInfo = "UTC") -> int:
     try:
         normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
         instant = datetime.fromisoformat(normalized)
     except ValueError as exc:
         raise ValueError("time filters must use ISO-8601") from exc
     if instant.tzinfo is None:
-        instant = instant.replace(tzinfo=ZoneInfo(timezone))
+        tz = ZoneInfo(timezone) if isinstance(timezone, str) else timezone
+        instant = instant.replace(tzinfo=tz)
     return int(instant.timestamp() * 1000)
 
 
-def parse_until_ms(value: str, *, timezone: str = "Europe/Paris") -> int:
+def parse_until_ms(value: str, *, timezone: str | ZoneInfo = "UTC") -> int:
+    tz = ZoneInfo(timezone) if isinstance(timezone, str) else timezone
     if len(value) == 10:
         try:
             end_of_day = (
@@ -27,8 +29,8 @@ def parse_until_ms(value: str, *, timezone: str = "Europe/Paris") -> int:
             )
         except ValueError as exc:
             raise ValueError("time filters must use ISO-8601") from exc
-        return int(end_of_day.replace(tzinfo=ZoneInfo(timezone)).timestamp() * 1000)
-    return parse_instant_ms(value, timezone=timezone)
+        return int(end_of_day.replace(tzinfo=tz).timestamp() * 1000)
+    return parse_instant_ms(value, timezone=tz)
 
 
 def _number(value: object) -> int | float | None:

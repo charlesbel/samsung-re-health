@@ -254,15 +254,51 @@ def _dt_ms(value: datetime) -> int:
     return int(value.timestamp() * 1000)
 
 
-def _period_week(day: date) -> tuple[int, int]:
-    start_day = day - timedelta(days=day.weekday())
-    start = datetime.combine(start_day, time.min, TZ)
-    return _dt_ms(start), _dt_ms(start + timedelta(days=7)) - 1
+def period_bounds(
+    period: str,
+    anchor_date: date,
+    tz: ZoneInfo | None = None,
+    offset: int = 0,
+) -> tuple[int, int]:
+    target_tz = tz or TZ
+    if period == "day":
+        target_day = anchor_date + timedelta(days=offset)
+        start = datetime.combine(target_day, time.min, target_tz)
+        end = start + timedelta(days=1)
+    elif period == "month":
+        year = anchor_date.year
+        month = anchor_date.month + offset
+        while month < 1:
+            month += 12
+            year -= 1
+        while month > 12:
+            month -= 12
+            year += 1
+        start = datetime(year, month, 1, tzinfo=target_tz)
+        next_month = 1 if month == 12 else month + 1
+        next_year = year + 1 if month == 12 else year
+        end = datetime(next_year, next_month, 1, tzinfo=target_tz)
+    else:
+        start_day = (
+            anchor_date
+            - timedelta(days=anchor_date.weekday())
+            + timedelta(weeks=offset)
+        )
+        start = datetime.combine(start_day, time.min, target_tz)
+        end = start + timedelta(days=7)
+    return int(start.timestamp() * 1000), int(end.timestamp() * 1000) - 1
+
+
+def _period_week(day: date, tz: ZoneInfo | None = None) -> tuple[int, int]:
+    return period_bounds("week", day, tz=tz)
 
 
 class HealthAnalysisEngine:
-    def __init__(self, cache: HealthCache):
+    def __init__(
+        self, cache: HealthCache, *, timezone: str | ZoneInfo = "Europe/Paris"
+    ):
         self.cache = cache
+        self.tz = ZoneInfo(timezone) if isinstance(timezone, str) else timezone
 
     def generic(self, manifest_id: str, since_ms: int, until_ms: int) -> dict:
         return summarize_generic(

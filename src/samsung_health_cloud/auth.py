@@ -13,8 +13,7 @@ import httpx
 HEALTH_CLIENT_ID = "1y90e30264"
 
 
-class SamsungHealthCloudError(RuntimeError):
-    """Erreur volontairement dépourvue d’URL, corps et secret."""
+from .exceptions import SamsungHealthCloudError
 
 
 def safe_http_call(

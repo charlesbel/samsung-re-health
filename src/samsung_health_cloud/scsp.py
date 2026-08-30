@@ -6,22 +6,20 @@ from typing import Any
 import httpx
 
 from .auth import HEALTH_CLIENT_ID, SamsungHealthCloudError, safe_http_call
+from .models import DeviceProfile
+
+__all__ = [
+    "APP_VERSION",
+    "PLAY_URL",
+    "SCSP_VERSION",
+    "CloudToken",
+    "DeviceProfile",
+    "ScspIdentity",
+]
 
 PLAY_URL = "https://play.samsungcloud.com"
 APP_VERSION = "7.00.6.003"
 SCSP_VERSION = "1.0.1105"
-
-
-@dataclass(frozen=True, slots=True)
-class DeviceProfile:
-    model_name: str
-    alias: str
-    country_code: str = "FRA"
-    android_sdk: str = "36"
-    android_release: str = "16"
-    platform_version: str = "8.0.0"
-    device_type: str = "phone"
-    os_user_id: str = "0"
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -94,9 +92,10 @@ class ScspIdentity:
     def _headers(
         self, health_access_token: str, user_id: str, cdid: str
     ) -> dict[str, str]:
+        client_tag = getattr(self.profile, "client_tag", "ANDROID")
         return {
             "User-Agent": (
-                f"{self.profile.model_name}; HERMES; com.sec.android.app.shealth={APP_VERSION}; "
+                f"{self.profile.model_name}; {client_tag}; com.sec.android.app.shealth={APP_VERSION}; "
                 f"android sdk={self.profile.android_sdk}, sw={self.profile.android_release}; "
                 f"core={SCSP_VERSION}"
             ),

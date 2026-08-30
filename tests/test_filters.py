@@ -10,7 +10,7 @@ from samsung_health_cloud.filters import filter_records, parse_instant_ms
 def test_parse_instant_and_filter_records_by_overlapping_interval():
     paris = ZoneInfo("Europe/Paris")
     expected = int(datetime(2026, 1, 1, tzinfo=paris).timestamp() * 1000)
-    assert parse_instant_ms("2026-01-01") == expected
+    assert parse_instant_ms("2026-01-01", timezone="Europe/Paris") == expected
 
     records = [
         {

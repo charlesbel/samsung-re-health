@@ -12,8 +12,7 @@ def test_config_defaults():
     assert isinstance(config.cache_path, Path)
     assert isinstance(config.catalog_path, Path)
     assert config.device_profile.model_name != ""
-    assert "HERMES" not in config.device_profile.alias
-    assert "Charles" not in config.device_profile.alias
+    assert config.device_profile.alias == "Samsung Health Cloud Client"
 
 
 def test_config_custom_timezone_and_paths(tmp_path: Path):

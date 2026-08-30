@@ -34,7 +34,12 @@ class FakeHealthAuth:
         assert kwargs["physical_address"] == "physical-id"
         assert kwargs["auth_server_url"] == "https://eu-auth2.samsungosp.com"
         return HealthToken(
-            "synthetic-test-health-token", "refresh-secret", "uid-1", 100, 200, "bearer"
+            "synthetic-test-health-token",
+            "synthetic-test-refresh-token",
+            "uid-1",
+            100,
+            200,
+            "bearer",
         )
 
 
@@ -46,7 +51,7 @@ class FakeScsp:
         return "registration-1"
 
     def issue_token(self, **kwargs):
-        return CloudToken("Bearer cloud-secret", 2_000_000_000)
+        return CloudToken("Bearer synthetic-test-cloud-token", 2_000_000_000)
 
 
 def test_service_initializes_from_samsung_find_state_without_exposing_master(tmp_path):

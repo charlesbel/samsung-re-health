@@ -26,6 +26,7 @@ def test_state_store_writes_atomically_with_private_permissions_and_redacted_rep
     restored = store.load()
 
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert stat.S_IMODE(store.lock_path.stat().st_mode) == 0o600
     assert restored == state
     rendered = repr(restored)
     assert "synthetic-test-health-token" not in rendered
@@ -37,12 +38,12 @@ def test_state_store_writes_atomically_with_private_permissions_and_redacted_rep
     assert "<redacted>" in rendered
 
 
-def test_state_store_does_not_change_existing_parent_permissions(tmp_path):
+def test_state_store_rejects_overpermissive_parent_permissions(tmp_path):
     parent = tmp_path / "shared"
     parent.mkdir(mode=0o755)
     parent.chmod(0o755)
-    StateStore(parent / "state.json").save(HealthState())
-    assert stat.S_IMODE(parent.stat().st_mode) == 0o755
+    with pytest.raises(SamsungHealthCloudError, match="parent directory permissions"):
+        StateStore(parent / "state.json").save(HealthState())
 
 
 def test_state_store_holds_an_interprocess_lock(tmp_path):
@@ -54,6 +55,26 @@ def test_state_store_holds_an_interprocess_lock(tmp_path):
                 fcntl.flock(competing_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         finally:
             os.close(competing_fd)
+
+
+def test_state_store_transaction_allows_unlocked_and_nested_calls(tmp_path):
+    store = StateStore(tmp_path / "state.json")
+    with store.locked():
+        # Load from transaction
+        state = store._load_unlocked()
+        assert state == HealthState()
+        state.cdid = "tx-cdid"
+        store._save_unlocked(state)
+
+        # Public methods are reentrant for the same thread under transaction
+        reloaded = store.load()
+        assert reloaded.cdid == "tx-cdid"
+        reloaded.user_id = "tx-user"
+        store.save(reloaded)
+
+    final = store.load()
+    assert final.cdid == "tx-cdid"
+    assert final.user_id == "tx-user"
 
 
 def test_state_store_rejects_corrupt_or_overpermissive_state(tmp_path):

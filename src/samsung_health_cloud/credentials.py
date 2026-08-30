@@ -160,7 +160,8 @@ def _validate_master_state_v1(payload: dict) -> MasterCredentials:
 
 def load_master_credentials(path: Path) -> MasterCredentials:
     """Read and validate Samsung master credentials from disk with fail-closed security checks."""
-    content = secure_read_file(path, require_private=True, lock=True)
+    lock_path = path.with_name(f"{path.name}.lock")
+    content = secure_read_file(path, sidecar_lock_path=lock_path, require_private=True)
     try:
         payload = json.loads(content)
     except ValueError as exc:

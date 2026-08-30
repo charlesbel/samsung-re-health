@@ -88,3 +88,29 @@ def test_resolve_master_state_path_priority(tmp_path: Path, monkeypatch):
     env_path = tmp_path / "env_master.json"
     monkeypatch.setenv("SAMSUNG_ACCOUNT_MASTER_STATE", str(env_path))
     assert resolve_master_state_path(None, cli_override=None) == env_path
+
+
+def test_load_master_credentials_rejects_symlinked_parent_dir(tmp_path: Path):
+    real_parent = tmp_path / "real_dir"
+    real_parent.mkdir(mode=0o700)
+    target = real_parent / "master.json"
+    target.write_text((FIXTURES_DIR / "master-state-v1.synthetic.json").read_text(encoding="utf-8"))
+    target.chmod(0o600)
+
+    sym_parent = tmp_path / "sym_dir"
+    sym_parent.symlink_to(real_parent)
+
+    with pytest.raises(SamsungHealthCloudError, match="symlink"):
+        load_master_credentials(sym_parent / "master.json")
+
+
+def test_load_master_credentials_rejects_symlinked_lock_file(tmp_path: Path):
+    target = tmp_path / "master.json"
+    target.write_text((FIXTURES_DIR / "master-state-v1.synthetic.json").read_text(encoding="utf-8"))
+    target.chmod(0o600)
+
+    lock_file = tmp_path / "master.json.lock"
+    lock_file.symlink_to(target)
+
+    with pytest.raises(SamsungHealthCloudError, match="symlink"):
+        load_master_credentials(target)

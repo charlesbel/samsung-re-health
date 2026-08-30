@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import json
-import os
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Iterator
 
 from .auth import SamsungHealthCloudError
-from .file_lock import InterprocessLock, secure_atomic_write, secure_read_file
+from .file_lock import SidecarLock, secure_atomic_write, secure_read_file
 
 __all__ = ["HealthState", "StateStore"]
 
@@ -46,6 +45,8 @@ class HealthState:
 
 
 class StateStore:
+    """Secure, robust state store coordinated through stable `<state>.lock` sidecar."""
+
     def __init__(self, path: Path) -> None:
         self.path = path
 
@@ -55,27 +56,15 @@ class StateStore:
 
     @contextmanager
     def locked(self) -> Iterator[None]:
-        self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        flags = os.O_CREAT | os.O_RDWR
-        if hasattr(os, "O_CLOEXEC"):
-            flags |= os.O_CLOEXEC
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
-        fd = os.open(self.lock_path, flags, 0o600)
-        lock = InterprocessLock(fd, exclusive=True)
-        try:
-            if hasattr(os, "fchmod") and os.name != "nt":
-                os.fchmod(fd, 0o600)
-            lock.acquire()
+        """Exclusive transaction lock over the stable sidecar file for atomic multi-step operations."""
+        with SidecarLock(self.lock_path, exclusive=True):
             yield
-        finally:
-            lock.release()
-            os.close(fd)
 
-    def load(self) -> HealthState:
+    def _load_unlocked(self) -> HealthState:
+        """Internal load without acquiring sidecar lock (lock must already be held)."""
         if not self.path.exists():
             return HealthState()
-        content = secure_read_file(self.path, require_private=True, lock=True)
+        content = secure_read_file(self.path, sidecar_lock_path=None, require_private=True)
         try:
             payload = json.loads(content)
         except ValueError as exc:
@@ -110,6 +99,23 @@ class StateStore:
             raise SamsungHealthCloudError("Samsung Health state contains invalid field types")
         return HealthState(**selected)
 
-    def save(self, state: HealthState) -> None:
+    def _save_unlocked(self, state: HealthState) -> None:
+        """Internal save without acquiring sidecar lock (lock must already be held)."""
         content = json.dumps(asdict(state), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-        secure_atomic_write(self.path, content, file_mode=0o600, dir_mode=0o700)
+        secure_atomic_write(
+            self.path,
+            content,
+            sidecar_lock_path=None,
+            file_mode=0o600,
+            dir_mode=0o700,
+        )
+
+    def load(self) -> HealthState:
+        """Load state snapshot under shared sidecar lock."""
+        with SidecarLock(self.lock_path, exclusive=False):
+            return self._load_unlocked()
+
+    def save(self, state: HealthState) -> None:
+        """Save state atomically under exclusive sidecar lock."""
+        with SidecarLock(self.lock_path, exclusive=True):
+            self._save_unlocked(state)

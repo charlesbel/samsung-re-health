@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-The Samsung reverse engineering tools initially existed as research scripts and internal agent tools (`samsung-find-agent` and private `samsung-health-research` scripts). To publish these tools as stable, reusable open-source packages for developers, power users, and AI assistants, canonical naming conventions across Python distributions, module imports, command-line interfaces, and MCP servers must be established.
+The Samsung reverse engineering tools initially existed as research scripts and internal agent tools (`samsung-find-agent` and a private Samsung Health research workspace). To publish these tools as stable, reusable open-source packages for developers, power users, and AI assistants, canonical naming conventions across Python distributions, module imports, command-line interfaces, and MCP servers must be established.
 
 ## Decision
 

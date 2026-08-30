@@ -7,7 +7,7 @@ This document describes releases for `samsung-re-health`.
 - Distribution: `samsung-re-health`
 - Python import: `samsung_health_cloud`
 - Canonical executables: `samsung-re-health`, `samsung-re-health-mcp`
-- Trigger: a pushed tag exactly matching `v{project.version}`
+- Trigger: a pushed tag exactly matching `{project.version}`
 - Publisher: GitHub Actions OIDC through PyPI Trusted Publishing
 - GitHub environment: `pypi`
 
@@ -24,10 +24,10 @@ All tests and protocol smokes must use synthetic state and isolated `HOME`/XDG p
 `.github/workflows/release.yml` performs:
 
 1. **`verify-release`**: full-history checkout, tag/version equality, dependencies, Ruff, standard and optimized tests, build, strict Twine checks, installed-wheel MCP/CLI smoke, privacy/archive inspection, `pip-audit`, and full-history Gitleaks.
-2. **`publish-pypi`**: downloads the exact verified artifacts and publishes through Trusted Publishing only for a `v*` tag.
+2. **`publish-pypi`**: downloads the exact verified artifacts and publishes through Trusted Publishing only for an exact numeric SemVer tag.
 3. **`github-release`**: runs only after PyPI publication succeeds and attaches those same artifacts to the final GitHub Release.
 
-A manual workflow dispatch may run verification, but publication is rejected unless the ref is a matching version tag.
+A manual workflow dispatch accepts an existing immutable `release_tag`, checks out that tag, verifies that it points to the tested commit, and publishes only when `publish_to_pypi` is explicitly enabled.
 
 ## Trusted Publisher Configuration
 
@@ -46,12 +46,12 @@ Create the GitHub `pypi` environment before tagging. Optional reviewers are an e
 After the release commit is on `main`, CI is green, and the pending publisher exists:
 
 ```bash
-git tag -a v0.7.0 -m "Release v0.7.0"
-git push origin v0.7.0
+git tag -a 0.7.0 -m "samsung-re-health 0.7.0"
+git push origin 0.7.0
 ```
 
 Do not upload manually in parallel. PyPI artifacts and versions are immutable; inspect remote state before any retry after partial failure.
 
 ## Post-Release Verification
 
-Confirm that PyPI reports version `0.7.0` and both artifacts, install `samsung-re-health[mcp]==0.7.0` from PyPI in a fresh environment, run canonical CLI/MCP help and stdio negotiation, and verify a non-draft GitHub `v0.7.0` release with matching assets and repository links.
+Confirm that PyPI reports version `0.7.0` and both artifacts, install `samsung-re-health[mcp]==0.7.0` from PyPI in a fresh environment, run canonical CLI/MCP help and stdio negotiation, and verify a non-draft GitHub `0.7.0` release with matching assets and repository links.

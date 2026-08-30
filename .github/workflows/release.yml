@@ -3,9 +3,13 @@ name: Release Verification & Publishing
 on:
   push:
     tags:
-      - "v*"
+      - "[0-9]*.[0-9]*.[0-9]*"
   workflow_dispatch:
     inputs:
+      release_tag:
+        description: "Existing immutable release tag to build"
+        required: true
+        type: string
       publish_to_pypi:
         description: "Publish verified distribution packages to PyPI"
         type: boolean
@@ -20,6 +24,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
@@ -33,19 +38,21 @@ jobs:
 
       - name: Validate tag matches pyproject.toml version
         run: |
-          if [ "${{ inputs.publish_to_pypi }}" = "true" ] && [[ "${{ github.ref }}" != refs/tags/v* ]]; then
-            echo "ERROR: Manual publish_to_pypi requested on non-tag ref '${{ github.ref }}'. PyPI publish is only permitted on refs/tags/v*." >&2
+          RELEASE_TAG="${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}"
+          if ! [[ "$RELEASE_TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: Release tag '$RELEASE_TAG' is not an exact numeric SemVer tag." >&2
             exit 1
           fi
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            TAG_VERSION="${GITHUB_REF_NAME#v}"
-            PYPROJECT_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-            if [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ]; then
-              echo "ERROR: Git tag version '${TAG_VERSION}' does not match pyproject.toml version '${PYPROJECT_VERSION}'" >&2
-              exit 1
-            fi
-            echo "Tag version '${TAG_VERSION}' successfully verified against pyproject.toml version '${PYPROJECT_VERSION}'."
+          if [ "$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")" != "$(git rev-parse HEAD)" ]; then
+            echo "ERROR: Release tag '$RELEASE_TAG' does not point to the checked-out commit." >&2
+            exit 1
           fi
+          PYPROJECT_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          if [ "$RELEASE_TAG" != "$PYPROJECT_VERSION" ]; then
+            echo "ERROR: Git tag version '${RELEASE_TAG}' does not match pyproject.toml version '${PYPROJECT_VERSION}'" >&2
+            exit 1
+          fi
+          echo "Tag version '${RELEASE_TAG}' successfully verified against pyproject.toml version '${PYPROJECT_VERSION}'."
 
       - name: Code formatting & lint
         run: |
@@ -90,7 +97,7 @@ jobs:
     name: Publish to PyPI (Trusted Publishing)
     needs: [verify-release]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || inputs.publish_to_pypi == true)
+    if: github.event_name == 'push' || inputs.publish_to_pypi == true
     environment:
       name: pypi
       url: https://pypi.org/p/samsung-re-health
@@ -112,7 +119,7 @@ jobs:
     name: Create GitHub Release (Final)
     needs: [publish-pypi]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' || inputs.publish_to_pypi == true
     permissions:
       contents: write
     steps:
@@ -129,6 +136,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ github.ref_name }}" dist/* \
-            --title "Release ${{ github.ref_name }}" \
+          RELEASE_TAG="${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}"
+          gh release create "$RELEASE_TAG" dist/* \
+            --title "Release $RELEASE_TAG" \
             --generate-notes

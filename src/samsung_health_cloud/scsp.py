@@ -5,7 +5,12 @@ from typing import Any
 
 import httpx
 
-from .auth import HEALTH_CLIENT_ID, SamsungHealthCloudError, safe_http_call
+from .auth import (
+    HEALTH_CLIENT_ID,
+    SamsungHealthCloudError,
+    _validate_response_url,
+    safe_http_call,
+)
 from .models import DeviceProfile
 
 __all__ = [
@@ -55,7 +60,14 @@ class ScspIdentity:
                         "osUserId": self.profile.os_user_id,
                     },
                 },
+                follow_redirects=False,
             ),
+        )
+        _validate_response_url(
+            response,
+            expected_host="play.samsungcloud.com",
+            expected_path="/identity/v1/register",
+            operation="SCSP registration",
         )
         payload = self._json(response, "SCSP registration")
         registration_id = payload.get("registrationId")
@@ -68,7 +80,17 @@ class ScspIdentity:
         headers["x-sc-app-version"] = APP_VERSION
         response = safe_http_call(
             "SCSP token",
-            lambda: self.client.post(f"{PLAY_URL}/identity/v1/tokens", headers=headers),
+            lambda: self.client.post(
+                f"{PLAY_URL}/identity/v1/tokens",
+                headers=headers,
+                follow_redirects=False,
+            ),
+        )
+        _validate_response_url(
+            response,
+            expected_host="play.samsungcloud.com",
+            expected_path="/identity/v1/tokens",
+            operation="SCSP token",
         )
         payload = self._json(response, "SCSP token")
         try:
@@ -99,6 +121,8 @@ class ScspIdentity:
 
     @staticmethod
     def _json(response: httpx.Response, operation: str) -> dict[str, Any]:
+        if getattr(response, "history", None) or response.is_redirect:
+            raise SamsungHealthCloudError(f"{operation} redirect not allowed")
         if response.status_code != 200:
             raise SamsungHealthCloudError(f"{operation} failed with HTTP {response.status_code}")
         try:

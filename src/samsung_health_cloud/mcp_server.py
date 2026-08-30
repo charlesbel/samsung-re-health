@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
-import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -11,7 +9,7 @@ from typing import Any
 from .client import SamsungHealthClient, SamsungHealthLocalClient
 from .config import HealthConfig
 from .exceptions import SamsungHealthError, UsageError
-from .serialization import envelope, error_envelope, redact_secrets
+from .serialization import envelope, error_envelope, redact_raw_records
 from .state import StateStore
 
 __all__ = [
@@ -50,11 +48,22 @@ class SamsungHealthMcpServer:
         description: str,
         input_schema: dict[str, Any],
         handler: Callable[..., Any],
+        *,
+        read_only: bool = True,
+        destructive: bool = False,
+        idempotent: bool = True,
+        open_world: bool = False,
     ) -> None:
         self._tools[name] = {
             "name": name,
             "description": description,
             "inputSchema": input_schema,
+            "annotations": {
+                "readOnlyHint": read_only,
+                "destructiveHint": destructive,
+                "idempotentHint": idempotent,
+                "openWorldHint": open_world,
+            },
             "handler": handler,
         }
 
@@ -63,7 +72,11 @@ class SamsungHealthMcpServer:
         self._register_tool(
             name="samsung_health_status",
             description="Inspect local authentication token presence and expiration timestamps without exposing secrets.",
-            input_schema={"type": "object", "properties": {}},
+            input_schema={
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
             handler=self._tool_status,
         )
 
@@ -79,6 +92,7 @@ class SamsungHealthMcpServer:
                         "description": "Optional type name, alias, or substring filter",
                     }
                 },
+                "additionalProperties": False,
             },
             handler=self._tool_types,
         )
@@ -95,6 +109,7 @@ class SamsungHealthMcpServer:
                         "description": "Optional manifest ID or alias to inspect",
                     }
                 },
+                "additionalProperties": False,
             },
             handler=self._tool_inventory,
         )
@@ -138,6 +153,7 @@ class SamsungHealthMcpServer:
                         "description": "Compare against preceding equivalent period",
                     },
                 },
+                "additionalProperties": False,
             },
             handler=self._tool_analyze,
         )
@@ -154,6 +170,7 @@ class SamsungHealthMcpServer:
                         "description": "Target date in YYYY-MM-DD format (defaults to current date)",
                     }
                 },
+                "additionalProperties": False,
             },
             handler=self._tool_summary,
         )
@@ -162,7 +179,11 @@ class SamsungHealthMcpServer:
         self._register_tool(
             name="samsung_health_cache_status",
             description="Inspect SQLite cache table record counts and synchronization error metadata.",
-            input_schema={"type": "object", "properties": {}},
+            input_schema={
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
             handler=self._tool_cache_status,
         )
 
@@ -199,6 +220,7 @@ class SamsungHealthMcpServer:
                             "description": "Pagination offset",
                         },
                     },
+                    "additionalProperties": False,
                 },
                 handler=self._tool_read_records,
             )
@@ -226,8 +248,13 @@ class SamsungHealthMcpServer:
                             "description": "Force sync ignoring cache freshness",
                         },
                     },
+                    "additionalProperties": False,
                 },
                 handler=self._tool_sync,
+                read_only=False,
+                destructive=False,
+                idempotent=False,
+                open_world=True,
             )
 
     # Tool implementations
@@ -314,8 +341,8 @@ class SamsungHealthMcpServer:
             or not _MANIFEST_ID_PATTERN.fullmatch(manifest_id)
         ):
             raise UsageError("invalid manifest_id parameter")
-        clamped_limit = min(max(1, int(limit)), MAX_RECORD_LIMIT)
-        clamped_offset = max(0, int(offset))
+        clamped_limit = limit
+        clamped_offset = offset
         with SamsungHealthLocalClient(config=self.config) as client:
             records = client.read_data(
                 manifest_id=manifest_id,
@@ -325,7 +352,7 @@ class SamsungHealthMcpServer:
                 offset=clamped_offset,
                 envelope=False,
             )
-            clean_records = redact_secrets(records)
+            clean_records = redact_raw_records(records)
             return {
                 "manifest_id": manifest_id,
                 "count": len(clean_records),
@@ -348,7 +375,7 @@ class SamsungHealthMcpServer:
             len(manifest_id) > 100 or not _MANIFEST_ID_PATTERN.fullmatch(manifest_id)
         ):
             raise UsageError("invalid manifest_id parameter")
-        clamped_days = min(max(1, int(days)), MAX_SYNC_DAYS)
+        clamped_days = days
         with SamsungHealthClient(config=self.config) as client:
             return client.sync(
                 manifest_id=manifest_id,
@@ -377,6 +404,7 @@ def list_registered_tools(server: SamsungHealthMcpServer) -> list[dict[str, Any]
             "name": tool["name"],
             "description": tool["description"],
             "inputSchema": tool["inputSchema"],
+            "annotations": tool["annotations"],
         }
         for tool in server._tools.values()
     ]
@@ -389,131 +417,131 @@ def invoke_tool(
         return error_envelope("tool_not_found", f"unknown or disabled MCP tool: {name}")
 
     tool_def = server._tools[name]
+    validation_error = _validate_arguments(tool_def.get("inputSchema", {}), arguments)
+    if validation_error:
+        return error_envelope("invalid_arguments", validation_error)
+
     handler = tool_def["handler"]
     try:
         data = handler(**arguments)
         return envelope(data)
     except UsageError as exc:
-        return error_envelope("usage_error", str(exc))
+        return error_envelope("invalid_arguments", str(exc))
     except SamsungHealthError as exc:
         return error_envelope("health_error", str(exc))
     except Exception:  # noqa: BLE001
         return error_envelope("internal_error", "An internal error occurred during tool execution.")
 
 
+def _validate_arguments(schema: dict[str, Any], arguments: Any) -> str | None:
+    """Validate the exact JSON subset used by MCP schemas without Python coercion."""
+    if not isinstance(arguments, dict):
+        return "arguments must be a JSON object"
+    properties = schema.get("properties", {})
+    unknown = set(arguments) - set(properties)
+    if unknown:
+        return f"unknown argument(s): {', '.join(sorted(unknown))}"
+    missing = set(schema.get("required", [])) - set(arguments)
+    if missing:
+        return f"missing required argument(s): {', '.join(sorted(missing))}"
+    json_types = {
+        "string": lambda value: isinstance(value, str),
+        "boolean": lambda value: isinstance(value, bool),
+        "integer": lambda value: isinstance(value, int) and not isinstance(value, bool),
+        "number": lambda value: isinstance(value, (int, float)) and not isinstance(value, bool),
+        "object": lambda value: isinstance(value, dict),
+        "array": lambda value: isinstance(value, list),
+    }
+    for key, value in arguments.items():
+        spec = properties[key]
+        expected = spec.get("type")
+        check = json_types.get(expected)
+        if check is not None and not check(value):
+            return f"argument {key} must have JSON type {expected}"
+        if "enum" in spec and value not in spec["enum"]:
+            return f"argument {key} is not an allowed value"
+        if "minimum" in spec and value < spec["minimum"]:
+            return f"argument {key} is below its minimum"
+        if "maximum" in spec and value > spec["maximum"]:
+            return f"argument {key} exceeds its maximum"
+    return None
+
+
 def run_stdio_server(server: SamsungHealthMcpServer | None = None) -> int:
-    """Run JSON-RPC MCP server over stdin/stdout."""
+    """Run the pinned official MCP SDK server over stdio."""
     mcp_server = server or create_mcp_server()
-
-    # Try importing official mcp package if available
     try:
-        from mcp.server.fastmcp import FastMCP
+        import anyio
+        from mcp.server import NotificationOptions
+        from mcp.server.lowlevel import Server
+        from mcp.server.models import InitializationOptions
+        from mcp.server.stdio import stdio_server
+        from mcp.types import CallToolResult, TextContent, Tool, ToolAnnotations
+    except ImportError as exc:
+        raise SamsungHealthError("MCP support requires installation with the 'mcp' extra") from exc
 
-        fast_mcp = FastMCP("samsung-health")
-        for tool in list_registered_tools(mcp_server):
-            name = tool["name"]
-            desc = tool["description"]
+    official = Server("samsung-re-health", version="0.7.0")
 
-            def make_handler(tname: str):
-                def tool_fn(**kwargs: Any):
-                    res = invoke_tool(mcp_server, tname, kwargs)
-                    if not res["ok"]:
-                        raise RuntimeError(res["error"]["message"])
-                    return res["data"]
+    @official.list_tools()
+    async def handle_list_tools() -> list[Tool]:
+        return [
+            Tool(
+                name=tool["name"],
+                description=tool["description"],
+                inputSchema=tool["inputSchema"],
+                annotations=ToolAnnotations(**tool["annotations"]),
+            )
+            for tool in list_registered_tools(mcp_server)
+        ]
 
-                return tool_fn
+    @official.call_tool(validate_input=True)
+    async def handle_call_tool(name: str, arguments: dict[str, Any]) -> CallToolResult:
+        result = invoke_tool(mcp_server, name, arguments)
+        payload = result.get("data") if result["ok"] else result["error"]
+        import json
 
-            fast_mcp.add_tool(
-                make_handler(name),
-                name=name,
-                description=desc,
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps(payload, sort_keys=True))],
+            structuredContent=payload if isinstance(payload, dict) else None,
+            isError=not result["ok"],
+        )
+
+    async def serve() -> None:
+        async with stdio_server() as (read_stream, write_stream):
+            await official.run(
+                read_stream,
+                write_stream,
+                InitializationOptions(
+                    server_name="samsung-re-health",
+                    server_version="0.7.0",
+                    capabilities=official.get_capabilities(NotificationOptions(), {}),
+                ),
             )
 
-        fast_mcp.run()
-        return 0
-    except ImportError:
-        pass
-
-    # Simple stdio JSON-RPC loop fallback
-    for line in sys.stdin:
-        if not line.strip():
-            continue
-        try:
-            req = json.loads(line)
-            req_id = req.get("id")
-            method = req.get("method")
-            params = req.get("params", {})
-
-            if method == "tools/list":
-                resp = {
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {"tools": list_registered_tools(mcp_server)},
-                }
-            elif method == "tools/call":
-                tname = params.get("name", "")
-                targs = params.get("arguments", {})
-                tool_res = invoke_tool(mcp_server, tname, targs)
-                if tool_res["ok"]:
-                    resp = {
-                        "jsonrpc": "2.0",
-                        "id": req_id,
-                        "result": {
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": json.dumps(tool_res["data"], indent=2, sort_keys=True),
-                                }
-                            ]
-                        },
-                    }
-                else:
-                    resp = {
-                        "jsonrpc": "2.0",
-                        "id": req_id,
-                        "error": {
-                            "code": -32000,
-                            "message": tool_res["error"]["message"],
-                        },
-                    }
-            elif method == "initialize":
-                resp = {
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "result": {
-                        "protocolVersion": "2024-11-05",
-                        "capabilities": {"tools": {}},
-                        "serverInfo": {"name": "samsung-health", "version": "0.7.0"},
-                    },
-                }
-            else:
-                resp = {
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "error": {"code": -32601, "message": f"method not found: {method}"},
-                }
-
-            sys.stdout.write(json.dumps(resp) + "\n")
-            sys.stdout.flush()
-        except Exception:  # noqa: BLE001
-            err_resp = {
-                "jsonrpc": "2.0",
-                "id": None,
-                "error": {"code": -32700, "message": "Failed to parse JSON-RPC message."},
-            }
-            sys.stdout.write(json.dumps(err_resp) + "\n")
-            sys.stdout.flush()
+    anyio.run(serve)
 
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
+    import os
+    import sys
+
+    prog_name = os.path.basename(sys.argv[0]) if sys.argv else "samsung-re-health-mcp"
+    if "samsung-health-mcp" in prog_name and "samsung-re-health-mcp" not in prog_name:
+        print(
+            "Warning: 'samsung-health-mcp' MCP command is deprecated; please use 'samsung-re-health-mcp'.",
+            file=sys.stderr,
+        )
+
     parser = argparse.ArgumentParser(
-        prog="samsung-health-mcp",
-        description="Samsung Health Cloud MCP Server (stdio)",
+        prog="samsung-re-health-mcp",
+        description="Unofficial reverse-engineered Samsung Health SDK, JSON CLI & MCP server (stdio)",
     )
     parser.add_argument(
-        "--timezone", default="UTC", help="Timezone for dates and bounds (default: UTC)"
+        "--timezone",
+        default=None,
+        help="Timezone for dates and bounds (default: UTC or environment)",
     )
     parser.add_argument(
         "--master-state", type=Path, default=None, help="Override path to master credentials"

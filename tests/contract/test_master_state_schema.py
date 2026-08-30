@@ -8,7 +8,7 @@ import pytest
 SCHEMA_PATH = Path(__file__).parent.parent.parent / "schemas" / "master-state-v1.schema.json"
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
-CANONICAL_SCHEMA_SHA256 = "c4cc1c62937200fbb95d2def0b39f3aa4db61ac2cc761a6bbb4591cca3a8c183"
+CANONICAL_SCHEMA_SHA256 = "d762cf55b4b1a97490f5100a785906b6a0c2bfed4aeda30392157649c526c8b4"
 CANONICAL_SYNTHETIC_SHA256 = "3381a2b1b4d4bda636c4364d0896cdba5bb2bfbf00f3b459ec559ad673dd0dca"
 
 

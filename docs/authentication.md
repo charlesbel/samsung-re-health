@@ -1,23 +1,25 @@
 # Authentication Architecture
 
+> **Disclaimer**: `samsung-re-health` is an unofficial, reverse-engineered project and is not affiliated with Samsung Electronics Co., Ltd.
+
 ## Overview
 
-Samsung Health Cloud utilizes Samsung's OAuth2 and SCSP (Samsung Cloud Service Platform) authentication hierarchy.
+`samsung-re-health` utilizes Samsung's OAuth2 and SCSP (Samsung Cloud Service Platform) authentication hierarchy.
 
-Authentication is bootstrapped using a single shared master state file created during initial interactive login with Samsung Find.
+Authentication is bootstrapped using a single shared master state file created during initial interactive login with `samsung-re-find` (or legacy `samsung-find`).
 
 ```text
-Samsung Account Interactive Login (Samsung Find)
+Samsung Account Interactive Login (samsung-re-find)
                     │
                     ▼
      Neutral Master State v1 (master.json)
          ┌──────────┴──────────┐
          ▼                     ▼
- Samsung Find Session   Samsung Health Session
- (user_state_dir)       (user_state_dir)
+ samsung-re-find Session  samsung-re-health Session
+ (user_state_dir)         (user_state_dir)
          │                     │
          ▼                     ▼
- Samsung Find SDK/CLI/MCP  Samsung Health SDK/CLI/MCP
+ samsung-re-find CLI/MCP   samsung-re-health CLI/MCP
 ```
 
 ## Token Hierarchy
@@ -25,10 +27,10 @@ Samsung Account Interactive Login (Samsung Find)
 1. **Master Token (`userauth_token`)**:
    - Stored in `samsung-account/master.json`.
    - Used to request service-specific access tokens.
-   - Strictly read-only for `samsung-health-cloud`.
+   - Strictly read-only for `samsung-re-health`.
 2. **Health OAuth2 Tokens**:
    - `health_access_token` and `health_refresh_token`.
-   - Exchanged with `https://eu-auth2.samsungosp.com/auth/oauth2/token` using the Health client ID.
+   - Exchanged with the HTTPS Samsung auth endpoint declared by the validated master state, using the Health client ID. The host must satisfy the package allowlist; no fixed regional hostname is assumed.
    - Cached in service-specific `state.json`.
 3. **SCSP Cloud Tokens**:
    - `registration_id` registered via `https://play.samsungcloud.com/identity/v1/register`.
@@ -40,5 +42,17 @@ Samsung Account Interactive Login (Samsung Find)
 1. Programmatically injected path in SDK facade `HealthConfig(master_state_path=...)`
 2. `--master-state <PATH>` CLI / MCP command-line argument
 3. `SAMSUNG_ACCOUNT_MASTER_STATE` environment variable
-4. Default OS user config path: `platformdirs.user_config_dir("samsung-account") / "master.json"`
-5. Legacy fallback path: `~/.config/samsung-find/state.json`
+4. Default shared master path for the current OS
+5. Matching legacy Find state for the current OS, used only when the master file is absent
+
+The default and legacy locations intentionally match `samsung-re-find` exactly:
+
+| OS | Master State v1 | Legacy Find state |
+|---|---|---|
+| Linux | `$XDG_CONFIG_HOME/samsung-account/master.json` (normally `~/.config/samsung-account/master.json`) | `$XDG_CONFIG_HOME/samsung-find/state.json` (normally `~/.config/samsung-find/state.json`) |
+| macOS | `~/Library/Application Support/samsung-account/master.json` | `~/Library/Application Support/samsung-find/state.json` |
+| Windows | `%APPDATA%\samsung-account\master.json` | `%APPDATA%\samsung-find\state.json` |
+
+Windows uses the roaming `%APPDATA%` root, not local app data. macOS uses `Application Support`; Linux retains `platformdirs`/XDG behavior.
+
+When adopting Master State v1, Health only stamps a previously missing generation onto an empty derived state. If pre-0.7 Health authentication, identity, or registration state already exists without a generation, it is cleared and reinitialized before the new generation is persisted; cached credentials are never silently adopted across unknown lineage.

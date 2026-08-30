@@ -7,7 +7,6 @@ from zoneinfo import ZoneInfo
 from .cache import HealthCache
 
 UTC = ZoneInfo("UTC")
-PARIS = ZoneInfo("Europe/Paris")
 STEP_DAILY = "com.samsung.shealth.step_daily_trend"
 SLEEP = "com.samsung.health.sleep"
 HEART_RATE = "com.samsung.health.heart_rate"
@@ -166,7 +165,7 @@ class HealthAnalytics:
         }
 
     def latest_weight(self, *, until: date | None = None) -> dict:
-        end = _day_bounds(until)[1] if until else 9_223_372_036_854_775_807
+        end = _day_bounds(until, self.tz)[1] if until else 9_223_372_036_854_775_807
         records = self.cache.records(WEIGHT, since_ms=0, until_ms=end)
         if not records:
             return {

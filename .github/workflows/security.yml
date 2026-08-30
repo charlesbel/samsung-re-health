@@ -5,16 +5,45 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 jobs:
-  privacy-gate:
+  security-audit:
+    name: Security & Privacy Audit Gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Checkout repository with full history
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318edeed2796c01c3abba81adc8 # v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[mcp,dev] pip-audit
+
       - name: Run public-tree privacy scanner
         run: |
+          python scripts/verify_privacy.py
+
+      - name: Run dependency vulnerability audit (pip-audit)
+        run: |
+          pip-audit --strict
+
+      - name: Run full-history secret scan (Gitleaks with redaction)
+        run: |
+          go install github.com/zricethezav/gitleaks/v8@v8.28.0
+          "$(go env GOPATH)/bin/gitleaks" git --config .gitleaks.toml --verbose --redact
+
+      - name: Build packages and verify extracted archives
+        run: |
+          python -m build
+          twine check --strict dist/*
           python scripts/verify_privacy.py

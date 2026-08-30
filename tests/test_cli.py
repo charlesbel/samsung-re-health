@@ -199,3 +199,179 @@ def test_status_reports_corrupt_state_without_traceback(tmp_path, capsys):
     assert result in (2, 5)
     assert "error:" in captured.err
     assert "Traceback" not in captured.err
+
+
+def test_cli_online_commands_with_mock_transport(tmp_path, monkeypatch):
+    import json
+
+    master_path = tmp_path / "master.json"
+    master_path.write_text(
+        json.dumps(
+            {
+                "schema": "io.github.charlesbel.samsung-account.master",
+                "schema_version": 1,
+                "generation": "gen-1",
+                "created_at": 100,
+                "updated_at": 100,
+                "account": {"login_id": "user@example.invalid"},
+                "installation": {"physical_address": "addr"},
+                "identity": {
+                    "auth_server_url": "https://account.samsung.com",
+                    "userauth_token": "tok",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    master_path.chmod(0o600)
+
+    state_path = tmp_path / "state.json"
+    cache_path = tmp_path / "cache.sqlite3"
+
+    def mock_handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "authorize" in url:
+            return httpx.Response(200, json={"code": "auth-code", "auth_data": {"userId": "uid"}})
+        if "oauth2/token" in url:
+            return httpx.Response(
+                200,
+                json={
+                    "access_token": "acc",
+                    "refresh_token": "ref",
+                    "userId": "uid",
+                    "expires_in": 3600,
+                    "refresh_token_expires_in": 7200,
+                    "token_type": "bearer",
+                },
+            )
+        if "/identity/v1/register" in url:
+            return httpx.Response(200, json={"registrationId": "reg-1"})
+        if "/identity/v1/tokens" in url:
+            return httpx.Response(
+                200,
+                json={
+                    "tokenType": "Bearer",
+                    "accessToken": "cloud-tok",
+                    "expiresAt": 9_999_999_999,
+                },
+            )
+        if "documents" in url or "data" in url:
+            return httpx.Response(200, json={"documents": [], "nextPageToken": None})
+        return httpx.Response(200, json={})
+
+    monkeypatch.setattr(
+        httpx,
+        "Client",
+        lambda **kwargs: httpx._client.Client(  # type: ignore[attr-defined]
+            transport=httpx.MockTransport(mock_handler)
+        ),
+    )
+
+    # 1. init
+    res_init = cli.main(["--master-state", str(master_path), "--state", str(state_path), "init"])
+    assert res_init == 0
+
+    # 2. sync
+    res_sync = cli.main(
+        [
+            "--master-state",
+            str(master_path),
+            "--state",
+            str(state_path),
+            "--cache",
+            str(cache_path),
+            "sync",
+            "--days",
+            "7",
+        ]
+    )
+    assert res_sync == 0
+
+    # 3. read
+    res_read = cli.main(
+        [
+            "--master-state",
+            str(master_path),
+            "--state",
+            str(state_path),
+            "read",
+            "com.samsung.health.sleep",
+            "--limit",
+            "5",
+        ]
+    )
+    assert res_read == 0
+
+    # 4. export
+    export_file = tmp_path / "export.jsonl"
+    res_exp = cli.main(
+        [
+            "--master-state",
+            str(master_path),
+            "--state",
+            str(state_path),
+            "export",
+            "com.samsung.health.sleep",
+            "--output",
+            str(export_file),
+        ]
+    )
+    assert res_exp == 0
+
+    # 5. export-all
+    export_dir = tmp_path / "export_dir"
+    res_exp_all = cli.main(
+        [
+            "--master-state",
+            str(master_path),
+            "--state",
+            str(state_path),
+            "export-all",
+            "--output-dir",
+            str(export_dir),
+        ]
+    )
+    assert res_exp_all == 0
+
+
+def test_cli_canonical_and_legacy_prog_deprecation(monkeypatch, capsys):
+    import sys
+
+    # 1. Canonical executable name: no deprecation warning
+    monkeypatch.setattr(sys, "argv", ["/usr/bin/samsung-re-health", "types"])
+    exit_code = cli.main(["types"])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert "deprecated" not in captured.err
+
+    # 2. Legacy alias 'samsung-health': deprecation warning on stderr
+    monkeypatch.setattr(sys, "argv", ["/usr/bin/samsung-health", "types"])
+    exit_code = cli.main(["types"])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert (
+        "Warning: 'samsung-health' CLI command is deprecated; please use 'samsung-re-health'."
+        in captured.err
+    )
+
+    # 3. Legacy alias 'samsung-health-cloud': deprecation warning on stderr
+    monkeypatch.setattr(sys, "argv", ["/usr/bin/samsung-health-cloud", "types"])
+    exit_code = cli.main(["types"])
+    assert exit_code == 0
+    captured = capsys.readouterr()
+    assert (
+        "Warning: 'samsung-health-cloud' CLI command is deprecated; please use 'samsung-re-health'."
+        in captured.err
+    )
+
+
+def test_parser_prog_name():
+    parser = build_parser()
+    assert parser.prog == "samsung-re-health"
+    assert "Unofficial reverse-engineered" in parser.description
+
+
+def test_partial_result_exit_code_contract() -> None:
+    assert cli._partial_result_exit(0) == 0
+    assert cli._partial_result_exit(1) == 6
+    assert cli._partial_result_exit(99) == 6

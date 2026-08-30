@@ -52,6 +52,40 @@ class SamsungHealthService:
     def _initialize_locked(self) -> HealthState:
         state = self.store.load()
         now = int(self.now())
+        credentials = load_master_credentials(self.master_state_path)
+
+        generation_changed = state.master_generation != credentials.generation
+        derived_identity_exists = any(
+            (
+                state.health_access_token,
+                state.health_refresh_token,
+                state.health_access_expires_at,
+                state.health_refresh_expires_at,
+                state.cloud_token,
+                state.cloud_expires_at,
+                state.user_id,
+                state.cdid,
+                state.registration_id,
+            )
+        )
+        # A missing lineage marker is only safe to adopt for an empty derived state.
+        # Existing pre-generation identity may belong to another master account.
+        if generation_changed and (state.master_generation or derived_identity_exists):
+            state.health_access_token = ""
+            state.health_refresh_token = ""
+            state.health_access_expires_at = 0
+            state.health_refresh_expires_at = 0
+            state.cloud_token = ""
+            state.cloud_expires_at = 0
+            state.user_id = ""
+            state.cdid = ""
+            state.registration_id = ""
+
+        # Adopt and persist the current generation only after stale derived state is cleared.
+        state.master_generation = credentials.generation
+        if generation_changed:
+            self.store.save(state)
+
         if not state.cdid:
             state.cdid = secrets.token_hex(32)
             self.store.save(state)
@@ -61,7 +95,6 @@ class SamsungHealthService:
             or state.health_access_expires_at <= now + 60
             or not state.user_id
         ):
-            credentials = load_master_credentials(self.master_state_path)
             health = self.health_auth.issue(
                 master_token=credentials.token,
                 login_id=credentials.login_id,

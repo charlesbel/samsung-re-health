@@ -28,9 +28,15 @@ def test_mcp_read_records_enforces_hard_limit(tmp_path: Path):
     config = HealthConfig(cache_path=db_path)
     server = create_mcp_server(config=config, allow_records=True)
 
-    # Calling with limit=1000 should be clamped to hard server max (e.g. 50)
+    # Values outside the advertised schema fail closed instead of being coerced.
     result = invoke_tool(
         server, "samsung_health_read_records", {"manifest_id": "weight", "limit": 1000}
+    )
+    assert result["ok"] is False
+    assert result["error"]["code"] == "invalid_arguments"
+
+    result = invoke_tool(
+        server, "samsung_health_read_records", {"manifest_id": "weight", "limit": 50}
     )
     assert result["ok"] is True
     records = result["data"]["records"]

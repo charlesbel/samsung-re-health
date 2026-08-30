@@ -104,3 +104,25 @@ def test_list_documents_rejects_unsafe_manifest_and_large_limit():
                 assert "secret" not in str(exc)
             else:
                 raise AssertionError("unsafe request was accepted")
+
+
+def test_list_documents_rejects_redirects_and_prevents_request_replay():
+    requested_hosts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_hosts.append(request.url.host)
+        if request.url.host == "evil.attacker.com":
+            return httpx.Response(200, json={"documents": [{"data": "attacker"}]})
+        return httpx.Response(302, headers={"Location": "https://evil.attacker.com/data"})
+
+    with (
+        httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True) as client,
+        pytest.raises(SamsungHealthCloudError, match="redirect not allowed"),
+    ):
+        CloudDataClient(client).list_documents(
+            manifest_id="com.samsung.health.sleep",
+            schema_revision=18,
+            cloud_authorization="Bearer test-secret",
+        )
+
+    assert requested_hosts == ["api.samsungcloud.com"]

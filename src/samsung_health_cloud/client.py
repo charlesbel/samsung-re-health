@@ -308,7 +308,9 @@ class SamsungHealthClient(SamsungHealthLocalClient):
     ) -> None:
         super().__init__(config)
         self._custom_http = http_client is not None
-        self._http_client = http_client or httpx.Client(timeout=self.config.timeout)
+        self._http_client = http_client or httpx.Client(
+            timeout=self.config.timeout, follow_redirects=False
+        )
         self._store = StateStore(self.config.state_path)
         self._health_auth = HealthAuth(self._http_client)
         self._scsp = ScspIdentity(self._http_client, profile=self.config.device_profile)
@@ -391,14 +393,14 @@ class SamsungHealthClient(SamsungHealthLocalClient):
             }
             target_manifests = [m for m in manifests if m.manifest_id in core_ids] or manifests
 
-        data_client = CloudDataClient(self._http_client)
-        syncer = CacheSynchronizer(self._cache, data_client)
+        data_client = CloudDataClient(self._http_client, profile=self.config.device_profile)
+        syncer = CacheSynchronizer(self._cache, data_client, cloud_authorization=state.cloud_token)
         now_ms = int(time.time() * 1000)
         since_ms = 0 if all_history else max(0, now_ms - days * 86_400_000)
 
-        return syncer.sync_manifests(
+        return syncer.sync(
             target_manifests,
-            cloud_authorization=state.cloud_token,
             since_ms=since_ms,
+            until_ms=None,
             force=force,
         )

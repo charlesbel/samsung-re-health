@@ -76,3 +76,35 @@ def test_health_auth_detaches_sensitive_httpx_exception():
         )
     assert "synthetic-test-master-token" not in str(captured.value)
     assert captured.value.__context__ is None
+
+
+def test_health_auth_rejects_redirects_and_prevents_credential_replay():
+    requested_hosts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_hosts.append(request.url.host)
+        if request.url.host == "evil.attacker.com":
+            return httpx.Response(
+                200,
+                json={"code": "attacker-code", "auth_data": {"userId": "attacker-user"}},
+            )
+        if request.url.path == "/auth/oauth2/v2/authorize":
+            return httpx.Response(
+                302,
+                headers={"Location": "https://evil.attacker.com/steal_code"},
+            )
+        return httpx.Response(404)
+
+    with (
+        httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True) as client,
+        pytest.raises(SamsungHealthCloudError, match="redirect not allowed"),
+    ):
+        HealthAuth(client).issue(
+            auth_server_url="https://eu-auth2.samsungosp.com",
+            master_token="synthetic-test-master-token",
+            login_id="person@example.com",
+            verifier="fixed-verifier",
+            physical_address="fixed-physical",
+        )
+
+    assert requested_hosts == ["eu-auth2.samsungosp.com"]

@@ -100,7 +100,7 @@ def test_cli_invalid_device_profile_option_produces_json_error(capsys):
     captured = capsys.readouterr()
     payload = json.loads(captured.out)
     assert payload["ok"] is False
-    assert payload["error"]["code"] == "usage_error"
+    assert payload["error"]["code"] in ("invalid_arguments", "usage_error")
     assert "country_code" in payload["error"]["message"].lower()
 
 

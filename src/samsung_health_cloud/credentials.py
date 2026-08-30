@@ -8,8 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
-import platformdirs
-
 from .auth import SamsungHealthCloudError
 from .file_lock import secure_read_file
 
@@ -49,6 +47,12 @@ def _validate_legacy_auth_url(url: str) -> str:
         raise SamsungHealthCloudError("invalid Samsung auth server authority: missing hostname")
     if parsed.username or parsed.password:
         raise SamsungHealthCloudError("invalid Samsung auth server authority: userinfo forbidden")
+    if parsed.port is not None and parsed.port != 443:
+        raise SamsungHealthCloudError(
+            "invalid Samsung auth server authority: non-443 port forbidden"
+        )
+    if parsed.path not in ("", "/") or parsed.query or parsed.fragment:
+        raise SamsungHealthCloudError("invalid Samsung auth server authority: root URL required")
     hostname = parsed.hostname.lower()
     if not any(
         hostname == suffix or hostname.endswith(f".{suffix}")
@@ -57,7 +61,7 @@ def _validate_legacy_auth_url(url: str) -> str:
         raise SamsungHealthCloudError(
             f"invalid Samsung auth server authority: untrusted host domain '{hostname}'"
         )
-    return url
+    return f"https://{hostname}"
 
 
 def _validate_master_state_v1(payload: dict) -> MasterCredentials:
@@ -80,15 +84,23 @@ def _validate_master_state_v1(payload: dict) -> MasterCredentials:
         raise SamsungHealthCloudError(
             f"invalid master state schema identifier: {payload['schema']}"
         )
-    if payload["schema_version"] != 1:
+    if isinstance(payload["schema_version"], bool) or payload["schema_version"] != 1:
         raise SamsungHealthCloudError(
             f"unsupported master state schema version: {payload['schema_version']}"
         )
     if not isinstance(payload["generation"], str) or not payload["generation"]:
         raise SamsungHealthCloudError("invalid master state generation")
-    if not isinstance(payload["created_at"], (int, float)) or payload["created_at"] < 0:
+    if (
+        isinstance(payload["created_at"], bool)
+        or not isinstance(payload["created_at"], (int, float))
+        or payload["created_at"] < 0
+    ):
         raise SamsungHealthCloudError("invalid master state created_at")
-    if not isinstance(payload["updated_at"], (int, float)) or payload["updated_at"] < 0:
+    if (
+        isinstance(payload["updated_at"], bool)
+        or not isinstance(payload["updated_at"], (int, float))
+        or payload["updated_at"] < 0
+    ):
         raise SamsungHealthCloudError("invalid master state updated_at")
 
     account = payload["account"]
@@ -213,12 +225,25 @@ def load_master_credentials(path: Path) -> MasterCredentials:
     )
 
 
+def _shared_config_dir(app_name: str) -> Path:
+    """Resolve shared Samsung state exactly like samsung-re-find on each OS."""
+    if sys.platform == "win32":
+        roaming = os.environ.get("APPDATA")
+        base = Path(roaming) if roaming else Path.home() / "AppData" / "Roaming"
+        return base / app_name
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / app_name
+    xdg_config = os.environ.get("XDG_CONFIG_HOME")
+    base = Path(xdg_config) if xdg_config else Path.home() / ".config"
+    return base / app_name
+
+
 def default_master_state_path() -> Path:
-    return Path(platformdirs.user_config_dir("samsung-account")) / "master.json"
+    return _shared_config_dir("samsung-account") / "master.json"
 
 
 def legacy_find_state_path() -> Path:
-    return Path.home() / ".config" / "samsung-find" / "state.json"
+    return _shared_config_dir("samsung-find") / "state.json"
 
 
 def resolve_master_state_path(
@@ -238,8 +263,8 @@ def resolve_master_state_path(
         legacy = legacy_find_state_path()
         if legacy.exists():
             print(
-                "Warning: using legacy Samsung Find state at ~/.config/samsung-find/state.json. "
-                "Migrate to neutral master state v1 (~/.config/samsung-account/master.json).",
+                f"Warning: using legacy Samsung Find state at {legacy}. "
+                f"Migrate to neutral master state v1 ({default_path}).",
                 file=sys.stderr,
             )
             return legacy

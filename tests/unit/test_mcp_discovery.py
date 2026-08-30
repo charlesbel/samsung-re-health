@@ -41,6 +41,13 @@ def test_mcp_opt_in_tools_discovery():
     assert "samsung_health_read_records" in tool_names
     assert "samsung_health_sync" in tool_names
     assert len(tools) == 8
+    sync = next(tool for tool in tools if tool["name"] == "samsung_health_sync")
+    assert sync["annotations"] == {
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": False,
+        "openWorldHint": True,
+    }
 
 
 def test_mcp_calling_disabled_tool_returns_error_envelope():

@@ -1,47 +1,149 @@
-# Python SDK Reference
+# Samsung Health Python SDK
 
-The `samsung_health_cloud` package exposes two primary typed client facades:
+> **Disclaimer:** `samsung-re-health` is unofficial and reverse-engineered. Health document transport is strictly read-only and the private API can change without notice.
 
-- `SamsungHealthClient`: Online client providing authentication, cloud synchronization, and local mirror analytics.
-- `SamsungHealthLocalClient`: Offline-only client that reads from the local SQLite cache without initializing network transport or requiring cloud credentials.
+The distribution is `samsung-re-health`; import it as `samsung_health_cloud`. Python 3.11 or newer is required.
 
-## Basic Usage
+```bash
+python -m pip install samsung-re-health
+```
+
+## Clients
+
+- `SamsungHealthLocalClient`: offline-only facade over the local catalog and SQLite mirror. It does not initialize cloud authentication or network transport.
+- `SamsungHealthClient`: adds Health OAuth/SCSP status and read-only cloud synchronization, then exposes the same local analytics.
+
+Both are context managers and accept a portable `HealthConfig`.
+
+## Offline Example
 
 ```python
-from samsung_health_cloud import (
-    HealthConfig,
-    SamsungHealthClient,
-    SamsungHealthLocalClient,
-)
+from samsung_health_cloud import HealthConfig, SamsungHealthLocalClient
 
-# Offline analytics against local SQLite cache
-with SamsungHealthLocalClient() as client:
-    summary = client.summary()
-    analysis = client.analyze(health_type="sleep", latest=True)
-    print(f"Sleep efficiency: {analysis['headline']['efficiency_percent']}%")
+config = HealthConfig(timezone="Europe/Paris")
+with SamsungHealthLocalClient(config=config) as client:
+    diagnostics = client.doctor()
+    manifests = client.types("sleep")
+    inventory = client.inventory("sleep")
+    analysis = client.analyze("sleep", latest=True)
 
-# Online client with sync
+    if analysis.get("available"):
+        print("Reported efficiency:", analysis.get("reported_efficiency_percent"))
+        print("Derived stage coverage:", analysis.get("derived_stage_coverage_percent"))
+```
+
+This reads only the local mirror. An empty new installation can resolve bundled catalog types but naturally has no personal records until an authorized synchronization populates the cache.
+
+## Online Example
+
+A neutral Samsung Account master-state v1 created by `samsung-re-find` is required:
+
+```python
+from samsung_health_cloud import HealthConfig, SamsungHealthClient
+
 config = HealthConfig(timezone="UTC")
 with SamsungHealthClient(config=config) as client:
     status = client.status()
-    print("Status:", status)
-
-    # Synchronize sleep data and analyze
-    sync_result = client.sync(manifest_id="com.samsung.health.sleep")
-    analysis = client.analyze(health_type="sleep", latest=True)
+    result = client.sync(days=7)
+    analysis = client.analyze("activity", period="week", compare="previous")
 ```
 
-## Public Facade Methods
+`sync()` fetches Health documents through fixed validated HTTPS GET endpoints and writes only to the private local SQLite mirror. Authentication and SCSP session setup use narrow fixed endpoints but cannot create, update, or delete Health records.
 
-### `SamsungHealthLocalClient`
-- `doctor() -> dict`: Run offline environment and database diagnostics.
-- `types(query: str | None = None) -> list[dict]`: List available health data types.
-- `inventory(manifest_id: str | None = None) -> dict`: Inspect record counts and time bounds in local mirror.
-- `cache_status() -> dict`: Query local SQLite mirror status and table sizes.
-- `analyze(health_type: str, period: str | None = None, latest: bool = False, since: str | None = None, until: str | None = None, all_history: bool = False, compare: str | None = None) -> dict`: Perform high-level health analysis with formulas and provenance.
-- `summary() -> dict`: Generate a unified health overview across sleep, activity, heart rate, and weight.
-- `read_data(manifest_id: str, since: str | None = None, until: str | None = None, limit: int = 100, offset: int = 0, envelope: bool = False) -> list[dict]`: Read raw or parsed records from local mirror.
+## `SamsungHealthLocalClient`
 
-### `SamsungHealthClient` (inherits / extends with network)
-- `status() -> dict`: Check token validity, expiry, and connection health.
-- `sync(manifest_id: str | None = None, since: str | None = None) -> dict`: Sync specified manifest or all active manifests from Samsung Cloud.
+### `doctor() -> dict[str, object]`
+
+Checks local configuration, catalog, cache, permissions, and disk readiness without reading cloud credentials.
+
+### `types(query: str | None = None) -> list[dict[str, object]]`
+
+Lists or resolves catalog types by human name, suffix, or manifest identifier.
+
+### `inventory(manifest_id: str | None = None) -> dict[str, object]`
+
+Reports local record counts, temporal bounds, sync states, and coverage. A global call omits `manifest_id`.
+
+### `cache_status() -> dict[str, object]`
+
+Returns private mirror status and table/synchronization metadata.
+
+### `summary(day: date | str | None = None) -> dict[str, object]`
+
+Returns a consolidated view for one civil date in the configured timezone.
+
+### `analyze(...) -> dict[str, object]`
+
+```python
+client.analyze(
+    health_type,
+    period=None,  # day, week, or month
+    latest=False,
+    since=None,  # ISO-8601
+    until=None,  # ISO-8601
+    all_history=False,
+    compare=None,  # only "previous"
+)
+```
+
+Selectors are mutually exclusive. Sleep supports latest/default only. Activity and exercise support civil periods, explicit intervals, all history, and appropriate previous-period comparisons. Generic catalog types support latest or one interval selector. Invalid combinations raise `UsageError` before credential or network access.
+
+### `read_data(...) -> list[dict[str, Any]]`
+
+```python
+client.read_data(
+    manifest_id,
+    since=None,
+    until=None,
+    limit=100,  # 1..10000, booleans rejected
+    offset=0,  # non-negative integer
+    envelope=False,
+)
+```
+
+This reads the local mirror only. Envelope mode can expose attachment metadata, signed URLs, E2EE markers, and unknown keys; protect its output as sensitive health data.
+
+## `SamsungHealthClient`
+
+The online client inherits all local methods.
+
+### `status() -> dict[str, object]`
+
+Reports token presence and expiry metadata without returning secret values.
+
+### `sync(...) -> dict[str, object]`
+
+```python
+client.sync(
+    manifest_id=None,
+    days=14,  # integer 1..3650
+    all_history=False,
+    all_types=False,
+    force=False,
+)
+```
+
+A specific `manifest_id` cannot be combined with `all_types=True`. `all_history=True` cannot be combined with a non-default `days`. With no manifest and no `all_types`, the client synchronizes the core analysis types. The private service may ignore requested time bounds, so use full-history/all-type sync sparingly.
+
+## Errors
+
+Public exceptions inherit from `SamsungHealthError`:
+
+- `UsageError`: invalid SDK or CLI arguments;
+- `AuthenticationError`: missing, expired, revoked, or malformed authentication;
+- `NetworkError`: transport failure;
+- `RateLimitError`: server throttling;
+- `DataError` / `SchemaError`: malformed or incompatible remote/local data;
+- `StateError`: unsafe, corrupt, or inaccessible local state;
+- `SamsungHealthCloudError`: general service/protocol error.
+
+Validate user input before constructing an online client when practical. Never include raw remote bodies, tokens, cookies, authorization headers, or state contents in error reports.
+
+## Interpretation Boundary
+
+- `raw_observed` fields have structural presence but no approved semantic meaning or unit.
+- Sleep `AWAKE` intervals are not conscious-awakening counts.
+- Samsung-reported efficiency and locally derived stage coverage are different quantities.
+- `time_window_only` joins indicate temporal overlap, not parentage or causality.
+- Structural coverage is not medical or semantic completeness.
+- Outputs are descriptive and must not be used as diagnosis or treatment advice.

@@ -1,6 +1,8 @@
-# Contributing to Samsung Health Cloud
+# Contributing to samsung-re-health
 
-Thank you for your interest in contributing to `samsung-health-cloud`!
+> **Disclaimer**: `samsung-re-health` is an unofficial, reverse-engineered project and is not affiliated with Samsung Electronics Co., Ltd.
+
+Thank you for your interest in contributing to `samsung-re-health`!
 
 ## Code of Conduct & Ground Rules
 
@@ -31,7 +33,7 @@ ruff format --check .
 
 # Build distribution packages and verify
 python -m build
-twine check dist/*
+twine check --strict dist/*
 ```
 
 ## Pull Request Guidelines

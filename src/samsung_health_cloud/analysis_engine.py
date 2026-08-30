@@ -352,12 +352,14 @@ class HealthAnalysisEngine:
         awake_periods = sum(
             1
             for index, current in enumerate(ordered)
-            if current[1] == 40001 and (index == 0 or ordered[index - 1][1] != 40001)
+            if current[1] == 40001
+            and (index == 0 or ordered[index - 1][1] != 40001 or current[2] > ordered[index - 1][3])
         )
         rem_periods = sum(
             1
             for index, current in enumerate(ordered)
-            if current[1] == 40004 and (index == 0 or ordered[index - 1][1] != 40004)
+            if current[1] == 40004
+            and (index == 0 or ordered[index - 1][1] != 40004 or current[2] > ordered[index - 1][3])
         )
         merged_stage_intervals: list[list[float]] = []
         stage_interval_overlap_count = 0

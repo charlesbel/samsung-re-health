@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/charlesbel/samsung-find/main/schemas/master-state-v1.schema.json",
+  "$id": "https://raw.githubusercontent.com/charlesbel/samsung-re-find/main/schemas/master-state-v1.schema.json",
   "title": "SamsungAccountMasterStateV1",
   "description": "Neutral Samsung Account master authentication state contract (v1)",
   "type": "object",

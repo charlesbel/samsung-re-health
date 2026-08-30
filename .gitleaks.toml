@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known synthetic test fixture generation and historical test tokens"
+regexes = [
+    '''synthetic-test-generation-0001''',
+    '''synthetic-uid-12345''',
+]

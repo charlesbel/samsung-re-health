@@ -23,9 +23,12 @@ from .exceptions import (
 from .models import DeviceProfile, ManifestInfo
 
 try:
-    __version__ = version("samsung-health-cloud")
+    __version__ = version("samsung-re-health")
 except PackageNotFoundError:
-    __version__ = "0.7.0"
+    try:
+        __version__ = version("samsung-health-cloud")
+    except PackageNotFoundError:
+        __version__ = "0.7.0"
 
 __all__ = [
     "AuthenticationError",

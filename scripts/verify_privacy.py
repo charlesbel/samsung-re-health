@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 import sys
 import tarfile
 import zipfile
@@ -12,11 +13,12 @@ from pathlib import Path
 _MAINTAINER_NAME = "".join(["her", "mes"])
 _MAINTAINER_HOME = "".join(["/ho", "me/", _MAINTAINER_NAME])
 _PERSONAL_EMAIL = "".join(["char", "les@"])
+_FORBIDDEN_MODELS = ["".join(["SM-S", "928B"]), "".join(["SM-S", "938B"])]
 
 FORBIDDEN_REGEXES = [
     re.compile(re.escape(_MAINTAINER_HOME)),
     re.compile(re.escape(_PERSONAL_EMAIL), re.IGNORECASE),
-]
+] + [re.compile(re.escape(m)) for m in _FORBIDDEN_MODELS]
 
 FORBIDDEN_EXTENSIONS = {
     ".apk",
@@ -81,6 +83,35 @@ def scan_tree(root_dir: Path) -> list[str]:
     return violations
 
 
+def scan_git_history(repo_root: Path) -> list[str]:
+    violations = []
+    try:
+        res = subprocess.run(
+            ["git", "log", "-p", "-n", "50", "--", "."],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode == 0 and res.stdout:
+            # Check commit messages and diff additions
+            added_lines = [
+                line[1:]
+                for line in res.stdout.splitlines()
+                if line.startswith("+") and not line.startswith("+++")
+            ]
+            for line in added_lines:
+                for pat in FORBIDDEN_REGEXES:
+                    if pat.search(line):
+                        violations.append(
+                            "Forbidden string pattern found in recent git history diff"
+                        )
+                        return violations
+    except Exception as exc:  # noqa: BLE001
+        violations.append(f"Failed to scan git history: {exc}")
+    return violations
+
+
 def scan_archives(dist_dir: Path) -> list[str]:
     violations = []
     sdists = list(dist_dir.glob("*.tar.gz"))
@@ -89,11 +120,13 @@ def scan_archives(dist_dir: Path) -> list[str]:
     for sdist in sdists:
         try:
             with tarfile.open(sdist, "r:gz") as tf:
-                names = tf.getnames()
+                members = tf.getmembers()
+                names = [m.name for m in members]
                 has_skills = any(".skills" in name for name in names)
                 if not has_skills:
                     violations.append(f"sdist {sdist.name} must include .skills/ documentation")
-                for name in names:
+                for m in members:
+                    name = m.name
                     if any(name.endswith(ext) for ext in FORBIDDEN_EXTENSIONS):
                         violations.append(f"sdist {sdist.name} contains forbidden file: {name}")
                     if (
@@ -103,6 +136,17 @@ def scan_archives(dist_dir: Path) -> list[str]:
                         or name == ".git"
                     ):
                         violations.append(f"sdist {sdist.name} contains internal directory: {name}")
+                    # Check text content of archive files
+                    if any(name.endswith(ext) for ext in SCANNED_EXTENSIONS) and m.isfile():
+                        fileobj = tf.extractfile(m)
+                        if fileobj:
+                            text_content = fileobj.read().decode("utf-8", errors="ignore")
+                            for pat in FORBIDDEN_REGEXES:
+                                if pat.search(text_content):
+                                    violations.append(
+                                        f"sdist {sdist.name} file {name} contains forbidden string pattern"
+                                    )
+                                    break
         except Exception as exc:  # noqa: BLE001
             violations.append(f"Failed to inspect sdist {sdist}: {exc}")
 
@@ -123,6 +167,16 @@ def scan_archives(dist_dir: Path) -> list[str]:
                         or name == ".git"
                     ):
                         violations.append(f"wheel {wheel.name} contains internal directory: {name}")
+                    # Check text content of archive files
+                    if any(name.endswith(ext) for ext in SCANNED_EXTENSIONS):
+                        with zf.open(name, "r") as f:
+                            text_content = f.read().decode("utf-8", errors="ignore")
+                            for pat in FORBIDDEN_REGEXES:
+                                if pat.search(text_content):
+                                    violations.append(
+                                        f"wheel {wheel.name} file {name} contains forbidden string pattern"
+                                    )
+                                    break
         except Exception as exc:  # noqa: BLE001
             violations.append(f"Failed to inspect wheel {wheel}: {exc}")
 

@@ -17,7 +17,7 @@ When submitting any report, log, or reproduction:
 
 ## Security Architecture & Guarantees
 
-`samsung-health-cloud` is engineered with the following security principles:
+`samsung-re-health` is engineered with the following security principles:
 
 1. **Read-Only Data Transport**: Health data synchronization is strictly `GET`-only. The client cannot and does not write, modify, or delete health records in Samsung Cloud.
 2. **Master Credential Isolation**: The client consumes the shared neutral `master.json` strictly in read-only mode. It never writes to or alters the master state.

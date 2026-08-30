@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@0b93645e9fea7318edeed2796c01c3abba81adc8 # v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -26,13 +26,17 @@ jobs:
         run: |
           ruff format --check .
           ruff check .
-      - name: Run test suite
+      - name: Run test suite (normal and optimized)
         run: |
           pytest -q
+          python -O -m pytest -q
       - name: Build packages and run strict twine check
         run: |
           python -m build
           twine check --strict dist/*
+      - name: Run installed-wheel official MCP smoke
+        run: |
+          python scripts/smoke_wheel_mcp.py
       - name: Run privacy and archive inspection
         run: |
           python scripts/verify_privacy.py
@@ -46,7 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@0b93645e9fea7318edeed2796c01c3abba81adc8 # v5.3.0
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies

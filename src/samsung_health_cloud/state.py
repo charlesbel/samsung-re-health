@@ -23,6 +23,7 @@ class HealthState:
     user_id: str = ""
     cdid: str = ""
     registration_id: str = ""
+    master_generation: str = ""
 
     def __repr__(self) -> str:
         secret_fields = {
@@ -32,6 +33,7 @@ class HealthState:
             "user_id",
             "cdid",
             "registration_id",
+            "master_generation",
         }
         values = []
         for item in fields(self):
@@ -82,6 +84,7 @@ class StateStore:
             "user_id",
             "cdid",
             "registration_id",
+            "master_generation",
         }
         integer_fields = {
             "health_access_expires_at",

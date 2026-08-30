@@ -19,7 +19,7 @@ import httpx
 import platformdirs
 
 from .analysis_engine import MAX_MS, HealthAnalysisEngine, period_bounds
-from .analytics import HEART_RATE, PARIS, SLEEP, STEP_DAILY, WEIGHT, HealthAnalytics
+from .analytics import HEART_RATE, SLEEP, STEP_DAILY, WEIGHT, HealthAnalytics
 from .auth import HealthAuth, SamsungHealthCloudError
 from .cache import HealthCache
 from .catalog import CatalogStore, ManifestInfo
@@ -43,9 +43,12 @@ from .sync import CacheSynchronizer
 from .universal import resolve_manifest
 
 try:
-    __version__ = version("samsung-health-cloud")
+    __version__ = version("samsung-re-health")
 except PackageNotFoundError:
-    __version__ = "0.7.0"
+    try:
+        __version__ = version("samsung-health-cloud")
+    except PackageNotFoundError:
+        __version__ = "0.7.0"
 
 DEFAULT_MASTER_STATE = resolve_master_state_path()
 DEFAULT_HEALTH_STATE = Path(platformdirs.user_state_dir("samsung-health-cloud")) / "state.json"
@@ -57,33 +60,39 @@ CORE_MANIFEST_IDS = (STEP_DAILY, SLEEP, HEART_RATE, WEIGHT)
 
 class JsonArgumentParser(argparse.ArgumentParser):
     def error(self, message: str) -> None:
-        err = error_envelope("usage_error", message)
+        err = error_envelope("invalid_arguments", message)
         print(format_output(err, output_format="json"))
         sys.exit(2)
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = JsonArgumentParser(
-        prog="samsung-health",
-        description="Samsung Health Cloud CLI — typed, versioned, strictly read-only client",
+        prog="samsung-re-health",
+        description="Unofficial reverse-engineered Samsung Health SDK, JSON CLI & MCP server — typed, versioned, strictly read-only client",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
         "--master-state",
         type=Path,
-        default=DEFAULT_MASTER_STATE,
+        default=Path(os.environ["SAMSUNG_ACCOUNT_MASTER_STATE"])
+        if "SAMSUNG_ACCOUNT_MASTER_STATE" in os.environ
+        else DEFAULT_MASTER_STATE,
         help="Path to Samsung Account master credentials",
     )
     parser.add_argument(
         "--state",
         type=Path,
-        default=DEFAULT_HEALTH_STATE,
+        default=Path(os.environ["SAMSUNG_HEALTH_STATE"])
+        if "SAMSUNG_HEALTH_STATE" in os.environ
+        else DEFAULT_HEALTH_STATE,
         help="Path to Health session state",
     )
     parser.add_argument(
         "--catalog",
         type=Path,
-        default=DEFAULT_CATALOG,
+        default=Path(os.environ["SAMSUNG_HEALTH_CATALOG"])
+        if "SAMSUNG_HEALTH_CATALOG" in os.environ
+        else DEFAULT_CATALOG,
         help="Path to manifests catalog",
     )
     parser.add_argument(
@@ -91,7 +100,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--cache-db",
         dest="cache",
         type=Path,
-        default=DEFAULT_CACHE,
+        default=Path(
+            os.environ.get("SAMSUNG_HEALTH_CACHE", os.environ.get("SAMSUNG_HEALTH_CACHE_DB", ""))
+        )
+        if ("SAMSUNG_HEALTH_CACHE" in os.environ or "SAMSUNG_HEALTH_CACHE_DB" in os.environ)
+        else DEFAULT_CACHE,
         help="Path to SQLite mirror database",
     )
     parser.add_argument(
@@ -366,6 +379,38 @@ def _device_profile_from_args(args: argparse.Namespace) -> DeviceProfile:
         raise UsageError(f"invalid device profile parameter: {exc}") from exc
 
 
+def _validate_cli_args_early(args: argparse.Namespace) -> None:
+    _device_profile_from_args(args)
+    cmd = getattr(args, "command", "")
+    if cmd == "sync":
+        if getattr(args, "all_types", False) and getattr(args, "manifest_id", None):
+            raise UsageError("cannot combine specific manifest_id with all_types")
+        if not getattr(args, "all_history", False) and (args.days < 1 or args.days > 3650):
+            raise UsageError("days must be between 1 and 3650")
+    elif cmd == "read":
+        if getattr(args, "page_size", 200) < 1 or getattr(args, "page_size", 200) > 1000:
+            raise UsageError("page-size must be between 1 and 1000")
+        if not getattr(args, "all", False) and (
+            getattr(args, "limit", 20) < 1 or getattr(args, "limit", 20) > 10000
+        ):
+            raise UsageError("limit must be between 1 and 10000")
+        _time_bounds(args)
+    elif cmd in ("export", "export-all"):
+        if getattr(args, "page_size", 200) < 1 or getattr(args, "page_size", 200) > 1000:
+            raise UsageError("page-size must be between 1 and 1000")
+        _time_bounds(args)
+    elif cmd == "data":
+        if getattr(args, "limit", 100) < 1 or getattr(args, "limit", 100) > 10000:
+            raise UsageError("limit must be between 1 and 10000")
+        if getattr(args, "offset", 0) < 0:
+            raise UsageError("offset must be non-negative")
+        _time_bounds(args)
+    elif cmd == "analyze":
+        query = getattr(args, "query", "").lower().replace("-", "_")
+        _validate_analysis_options(args, query)
+        _analysis_bounds(args)
+
+
 def _service(
     client: httpx.Client, args: argparse.Namespace, store: StateStore
 ) -> SamsungHealthService:
@@ -447,10 +492,9 @@ def _sync_cache(
     force: bool = False,
     max_age_ms: int = 15 * 60 * 1000,
 ) -> dict:
-    syncer = CacheSynchronizer(cache, data_client)
-    return syncer.sync_manifests(
+    syncer = CacheSynchronizer(cache, data_client, cloud_authorization=cloud_authorization)
+    return syncer.sync(
         manifests,
-        cloud_authorization=cloud_authorization,
         since_ms=since_ms,
         until_ms=until_ms,
         force=force,
@@ -671,6 +715,11 @@ def _export_all(
     return summary
 
 
+def _partial_result_exit(error_count: int) -> int:
+    """Map an aggregate export/sync failure count to the public CLI contract."""
+    return 0 if error_count == 0 else 6
+
+
 def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
     store = StateStore(args.state)
     if args.command == "status":
@@ -882,13 +931,14 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
             return result, (0 if result["failed_manifests"] == 0 else 6)
 
         if args.command in ("summary", "steps", "sleep", "heart-rate", "weight"):
+            tz = ZoneInfo(args.timezone)
             day = (
-                _parse_day(getattr(args, "day", None))
+                _parse_day(getattr(args, "day", None), timezone=tz)
                 if args.command != "weight"
-                else datetime.now(ZoneInfo(args.timezone)).date()
+                else datetime.now(tz).date()
             )
-            window_start = datetime.combine(day - timedelta(days=1), datetime.min.time(), PARIS)
-            window_end = datetime.combine(day + timedelta(days=1), datetime.min.time(), PARIS)
+            window_start = datetime.combine(day - timedelta(days=1), datetime.min.time(), tz)
+            window_end = datetime.combine(day + timedelta(days=1), datetime.min.time(), tz)
             selected_ids = {
                 "steps": (STEP_DAILY,),
                 "sleep": (SLEEP,),
@@ -973,15 +1023,20 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
             since_ms=since_ms,
             until_ms=until_ms,
         )
-        return summary, (0 if summary["error_count"] == 0 else 3)
+        return summary, _partial_result_exit(summary["error_count"])
 
 
 def main(argv: list[str] | None = None) -> int:
-    # Check for transitional alias usage
-    prog_name = os.path.basename(sys.argv[0]) if sys.argv else "samsung-health"
+    # Check for legacy alias usage
+    prog_name = os.path.basename(sys.argv[0]) if sys.argv else "samsung-re-health"
     if "samsung-health-cloud" in prog_name:
         print(
-            "Warning: 'samsung-health-cloud' CLI command is deprecated; please use 'samsung-health'.",
+            "Warning: 'samsung-health-cloud' CLI command is deprecated; please use 'samsung-re-health'.",
+            file=sys.stderr,
+        )
+    elif "samsung-health" in prog_name and "samsung-re-health" not in prog_name:
+        print(
+            "Warning: 'samsung-health' CLI command is deprecated; please use 'samsung-re-health'.",
             file=sys.stderr,
         )
 
@@ -993,7 +1048,7 @@ def main(argv: list[str] | None = None) -> int:
 
     out_fmt = getattr(args, "output", "json")
     try:
-        _device_profile_from_args(args)
+        _validate_cli_args_early(args)
         data, exit_code = _dispatch(args)
         # Wrap in versioned JSON response envelope
         env = envelope(data)
@@ -1015,7 +1070,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 5
     except (UsageError, ValueError, KeyError, TypeError) as exc:
-        err = error_envelope("usage_error", str(exc))
+        err = error_envelope("invalid_arguments", str(exc))
         print(format_output(err, output_format=out_fmt))
         print(f"error: {exc}", file=sys.stderr)
         return 2

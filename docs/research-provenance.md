@@ -1,8 +1,10 @@
 # Research Provenance & Methodology
 
+> **Disclaimer**: `samsung-re-health` is an unofficial, reverse-engineered project and is not affiliated with Samsung Electronics Co., Ltd.
+
 ## Scientific & Reverse Engineering Methodology
 
-`samsung-health-cloud` reconstructs the private cloud synchronization protocol and field definitions of Samsung Health using a disciplined, multi-layered provenance framework.
+`samsung-re-health` reconstructs the private cloud synchronization protocol and field definitions of Samsung Health using a disciplined, multi-layered provenance framework.
 
 ### Evidence Hierarchy
 
@@ -22,7 +24,7 @@
 
 The runtime baseline catalog bundled in `src/samsung_health_cloud/resources/manifests.json` contains strictly non-personal, account-independent manifest IDs and schema revision numbers:
 - All push IDs are strictly empty strings (`"push_id": ""`), ensuring no device or account routing tokens are packaged.
-- Revisions reflect the baseline schemas at release time. As Samsung Cloud updates data schemas over time, revisions in the bundled baseline may become superseded. When online synchronization is run (`samsung-health sync`), the client automatically discovers and updates local manifests with active cloud revisions.
+- Revisions reflect the baseline schemas at release time. As Samsung Cloud updates data schemas over time, revisions in the bundled baseline may become superseded. When online synchronization is run (`samsung-re-health sync`), the client automatically discovers and updates local manifests with active cloud revisions.
 
 ### Attribution and Independent Verification
 

@@ -1,7 +1,7 @@
 [project]
-name = "samsung-health-cloud"
+name = "samsung-re-health"
 version = "0.7.0"
-description = "Read-only Python client and CLI for Samsung Health Cloud data"
+description = "Unofficial reverse-engineered Samsung Health SDK, JSON CLI & MCP server"
 readme = "README.md"
 authors = [{ name = "Charles Bel" }]
 license = "MIT"
@@ -23,25 +23,28 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-mcp = ["mcp>=1.0.0"]
+mcp = ["mcp==1.29.1"]
 dev = [
     "build",
     "jsonschema>=4.20",
+    "mcp==1.29.1",
     "pytest>=8.0",
     "ruff>=0.8.0",
     "twine",
 ]
 
 [project.scripts]
+samsung-re-health = "samsung_health_cloud.cli:main"
+samsung-re-health-mcp = "samsung_health_cloud.mcp_server:main"
 samsung-health = "samsung_health_cloud.cli:main"
 samsung-health-cloud = "samsung_health_cloud.cli:main"
 samsung-health-mcp = "samsung_health_cloud.mcp_server:main"
 
 [project.urls]
-Homepage = "https://github.com/charlesbel/samsung-health-cloud"
-Repository = "https://github.com/charlesbel/samsung-health-cloud"
-Issues = "https://github.com/charlesbel/samsung-health-cloud/issues"
-Documentation = "https://github.com/charlesbel/samsung-health-cloud#readme"
+Homepage = "https://github.com/charlesbel/samsung-re-health"
+Repository = "https://github.com/charlesbel/samsung-re-health"
+Issues = "https://github.com/charlesbel/samsung-re-health/issues"
+Documentation = "https://github.com/charlesbel/samsung-re-health#readme"
 
 [build-system]
 requires = ["hatchling"]

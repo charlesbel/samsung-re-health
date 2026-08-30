@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://charlesbel.github.io/schemas/samsung-health-cloud/cli/v1/error-envelope.schema.json",
+  "$id": "https://charlesbel.github.io/schemas/samsung-re-health/cli/v1/error-envelope.schema.json",
   "title": "CliErrorEnvelopeV1",
   "type": "object",
   "required": ["ok", "schema_version", "error"],

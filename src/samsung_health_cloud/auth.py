@@ -26,7 +26,47 @@ def safe_http_call(operation: str, call: Callable[[], httpx.Response]) -> httpx.
         raise SamsungHealthCloudError(f"{operation} network request failed")
     if response is None:
         raise SamsungHealthCloudError(f"{operation} network request failed")
+    if getattr(response, "history", None) or response.is_redirect:
+        raise SamsungHealthCloudError(f"{operation} redirect not allowed")
     return response
+
+
+def _validate_response_url(
+    response: httpx.Response,
+    *,
+    expected_host: str,
+    expected_path: str,
+    operation: str,
+    expected_query: str | bytes = b"",
+) -> None:
+    if getattr(response, "history", None) or response.is_redirect:
+        raise SamsungHealthCloudError(f"{operation} redirect not allowed")
+    url = getattr(response, "url", None)
+    if url is None:
+        raise SamsungHealthCloudError(f"{operation} response missing URL")
+    scheme = getattr(url, "scheme", "")
+    host = (getattr(url, "host", "") or "").lower()
+    port = getattr(url, "port", None)
+    path = getattr(url, "path", "")
+    userinfo = getattr(url, "userinfo", b"")
+    query = getattr(url, "query", b"")
+    fragment = getattr(url, "fragment", "")
+    if userinfo:
+        raise SamsungHealthCloudError(f"{operation} response URL userinfo forbidden")
+    if fragment:
+        raise SamsungHealthCloudError(f"{operation} response URL fragment forbidden")
+    query_text = query.decode("ascii") if isinstance(query, bytes) else str(query)
+    expected_query_text = (
+        expected_query.decode("ascii") if isinstance(expected_query, bytes) else str(expected_query)
+    )
+    if query_text != expected_query_text:
+        raise SamsungHealthCloudError(f"{operation} response URL query mismatch")
+    if scheme != "https" or host != expected_host.lower():
+        raise SamsungHealthCloudError(f"{operation} response from untrusted authority: '{host}'")
+    if port is not None and port != 443:
+        raise SamsungHealthCloudError(f"{operation} response on non-443 port: {port}")
+    if path != expected_path:
+        raise SamsungHealthCloudError(f"{operation} response path mismatch: '{path}'")
 
 
 @dataclass(slots=True, repr=False)
@@ -82,17 +122,36 @@ class HealthAuth:
         parsed = urlparse(auth_server_url)
         host = (parsed.hostname or "").lower()
         if parsed.scheme != "https" or not (
-            host == "samsungosp.com" or host.endswith(".samsungosp.com")
+            host == "account.samsung.com"
+            or host == "samsungosp.com"
+            or host.endswith(".samsungosp.com")
         ):
             raise SamsungHealthCloudError("untrusted Samsung authentication domain")
-        auth_server_url = auth_server_url.rstrip("/")
+        if (
+            parsed.username
+            or parsed.password
+            or (parsed.port is not None and parsed.port != 443)
+            or parsed.path not in ("", "/")
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise SamsungHealthCloudError("invalid Samsung authentication authority")
+        auth_server_url = f"https://{host}"
         response = safe_http_call(
             "authorize",
             lambda: self.client.get(
                 f"{auth_server_url}/auth/oauth2/v2/authorize",
                 params=params,
                 headers={"Accept": "application/json"},
+                follow_redirects=False,
             ),
+        )
+        _validate_response_url(
+            response,
+            expected_host=host,
+            expected_path="/auth/oauth2/v2/authorize",
+            operation="authorize",
+            expected_query=str(httpx.QueryParams(params)),
         )
         payload = self._json(response, "authorize")
         code = payload.get("code")
@@ -115,7 +174,14 @@ class HealthAuth:
                     "code_verifier": verifier,
                 },
                 headers={"Accept": "application/json"},
+                follow_redirects=False,
             ),
+        )
+        _validate_response_url(
+            response,
+            expected_host=host,
+            expected_path="/auth/oauth2/token",
+            operation="token",
         )
         token_payload = self._json(response, "token")
         try:
@@ -132,6 +198,8 @@ class HealthAuth:
 
     @staticmethod
     def _json(response: httpx.Response, operation: str) -> dict[str, Any]:
+        if getattr(response, "history", None) or response.is_redirect:
+            raise SamsungHealthCloudError(f"{operation} redirect not allowed")
         if response.status_code != 200:
             raise SamsungHealthCloudError(f"{operation} failed with HTTP {response.status_code}")
         try:

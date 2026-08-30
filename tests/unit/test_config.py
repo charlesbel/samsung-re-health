@@ -1,6 +1,8 @@
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import pytest
+
 from samsung_health_cloud.config import HealthConfig
 
 
@@ -33,3 +35,33 @@ def test_config_from_env(monkeypatch, tmp_path: Path):
     config = HealthConfig.from_env()
     assert config.master_state_path == env_master
     assert config.timezone == ZoneInfo("Asia/Tokyo")
+
+
+def test_config_precedence_arg_over_env_over_default(monkeypatch, tmp_path: Path):
+    env_cache = tmp_path / "env_cache.sqlite3"
+    arg_cache = tmp_path / "arg_cache.sqlite3"
+    monkeypatch.setenv("SAMSUNG_HEALTH_CACHE", str(env_cache))
+    monkeypatch.setenv("SAMSUNG_HEALTH_TIMEZONE", "Asia/Tokyo")
+
+    # When arg is provided, it wins over env
+    config = HealthConfig(cache_path=arg_cache, timezone="Europe/London")
+    assert config.cache_path == arg_cache
+    assert config.timezone == ZoneInfo("Europe/London")
+
+    # When arg is omitted, env wins over default
+    config2 = HealthConfig()
+    assert config2.cache_path == env_cache
+    assert config2.timezone == ZoneInfo("Asia/Tokyo")
+
+
+def test_config_timeout_validation():
+    from samsung_health_cloud.exceptions import UsageError
+
+    with pytest.raises(UsageError, match="timeout"):
+        HealthConfig(timeout=0)
+
+    with pytest.raises(UsageError, match="timeout"):
+        HealthConfig(timeout=-5.0)
+
+    with pytest.raises(UsageError, match="timeout"):
+        HealthConfig(timeout=500.0)

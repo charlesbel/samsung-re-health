@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import json
 import os
@@ -12,6 +11,7 @@ from typing import Any
 
 from .auth import SamsungHealthCloudError
 from .catalog import ManifestInfo
+from .file_lock import SidecarLock
 from .filters import filter_records
 
 
@@ -118,7 +118,7 @@ class JsonlExporter:
             manifest_id=manifest.manifest_id,
             schema_revision=manifest.schema_revision,
             cloud_authorization=cloud_authorization,
-            page_size=page_size,
+            limit=page_size,
             start_page_token=start_page_token if isinstance(start_page_token, str) else None,
             e2ee_state=e2ee_state,
             start_time=since_ms,
@@ -311,15 +311,5 @@ class JsonlExporter:
     @contextmanager
     def _locked(output_path: Path):
         lock_path = output_path.with_name(f".{output_path.name}.lock")
-        flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
-        try:
-            fd = os.open(lock_path, flags, 0o600)
-        except OSError as exc:
-            raise SamsungHealthCloudError("unable to acquire export lock") from exc
-        try:
-            os.fchmod(fd, 0o600)
-            fcntl.flock(fd, fcntl.LOCK_EX)
+        with SidecarLock(lock_path, exclusive=True):
             yield
-        finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-            os.close(fd)

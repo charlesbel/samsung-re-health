@@ -1,11 +1,13 @@
 # Model Context Protocol (MCP) Server
 
-`samsung-health-cloud` provides a Model Context Protocol (MCP) server over `stdio` (`samsung-health-mcp`) allowing AI assistants to query health data safely and with strict privacy boundaries.
+> **Disclaimer**: `samsung-re-health` is an unofficial, reverse-engineered project and is not affiliated with Samsung Electronics Co., Ltd. Health data access is strictly read-only.
+
+`samsung-re-health` provides a Model Context Protocol (MCP) server over `stdio` (`samsung-re-health-mcp`) allowing AI assistants to query health data safely and with strict privacy boundaries.
 
 ## Installation
 
 ```bash
-pip install 'samsung-health-cloud[mcp]'
+pip install 'samsung-re-health[mcp]'
 ```
 
 ## Configuration (e.g. for Claude Desktop or Hermes)
@@ -13,13 +15,15 @@ pip install 'samsung-health-cloud[mcp]'
 ```json
 {
   "mcpServers": {
-    "samsung-health": {
-      "command": "samsung-health-mcp",
+    "samsung-re-health": {
+      "command": "samsung-re-health-mcp",
       "args": []
     }
   }
 }
 ```
+
+> **Compatibility Note**: The legacy alias `samsung-health-mcp` is also supported for backward compatibility.
 
 ## Default Tools (Read-Only & Aggregates)
 
@@ -32,11 +36,14 @@ pip install 'samsung-health-cloud[mcp]'
 
 ## Sensitive & Gated Tools
 
-- `samsung_health_read_records`: Retrieve individual records with a hard server-enforced limit (max 50) and automatic redaction of internal URLs, hardware IDs, and private tokens.
-- `samsung_health_sync`: Explicitly synchronize cloud records into the local database mirror.
+- `samsung_health_read_records`: Retrieve individual records with a hard server-enforced limit (max 50) and automatic redaction of internal URLs, hardware IDs, and private tokens. Enabled only with `--allow-records`.
+- `samsung_health_sync`: Explicitly synchronize cloud records into the local database mirror. Enabled only with `--allow-sync`.
+
+Although synchronization uses read-only `GET` requests against Samsung Health, it writes the local SQLite mirror and synchronization checkpoints and may refresh derived authentication state. Its MCP effect annotations are therefore `readOnlyHint=false`, `idempotentHint=false`, `destructiveHint=false`, and `openWorldHint=true`. The first two describe the complete local operation, not just the remote HTTP method; `destructiveHint=false` preserves the read-only Health-record boundary.
 
 ## Privacy & Safety Guarantees
 
+- **Strict Read-Only**: Cloud communications strictly perform HTTPS `GET` requests.
 - **No Medical Claims**: Outputs never contain diagnostic claims or prescriptive clinical advice.
-- **Redaction**: Raw tokens and signed URLs are masked before transmission.
-- **Strict Bounding**: Pagination parameters are strictly validated and clamped.
+- **Redaction**: Raw tokens, authorization headers, and signed URLs are masked before transmission.
+- **Strict Bounding**: Pagination parameters are strictly validated; out-of-range values are rejected rather than silently clamped.

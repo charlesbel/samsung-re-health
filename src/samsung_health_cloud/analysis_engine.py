@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 from .cache import HealthCache
 from .semantics import field_semantics
 
-TZ = ZoneInfo("Europe/Paris")
+TZ = ZoneInfo("UTC")
 MAX_MS = 9_223_372_036_854_775_807
 
 
@@ -271,7 +271,7 @@ def _period_week(day: date, tz: ZoneInfo | None = None) -> tuple[int, int]:
 
 
 class HealthAnalysisEngine:
-    def __init__(self, cache: HealthCache, *, timezone: str | ZoneInfo = "Europe/Paris"):
+    def __init__(self, cache: HealthCache, *, timezone: str | ZoneInfo = "UTC"):
         self.cache = cache
         self.tz = ZoneInfo(timezone) if isinstance(timezone, str) else timezone
 
@@ -531,12 +531,12 @@ class HealthAnalysisEngine:
                 "start": {
                     "kind": "direct_account_field",
                     "field": "com.samsung.health.sleep.start_time",
-                    "rendering": "Europe/Paris ISO-8601",
+                    "rendering": f"{getattr(self.tz, 'key', str(self.tz))} ISO-8601",
                 },
                 "end": {
                     "kind": "direct_account_field",
                     "field": "com.samsung.health.sleep.end_time",
-                    "rendering": "Europe/Paris ISO-8601",
+                    "rendering": f"{getattr(self.tz, 'key', str(self.tz))} ISO-8601",
                 },
                 "time_in_bed_minutes": {
                     "kind": "derived_basic",
@@ -695,7 +695,7 @@ class HealthAnalysisEngine:
         return result
 
     def activity_week(self, day: date, *, compare_previous: bool = False) -> dict:
-        since, until = _period_week(day)
+        since, until = _period_week(day, tz=self.tz)
         result = self.activity_interval(since, until, compare_previous=compare_previous)
         result["period"] = "week"
         return result

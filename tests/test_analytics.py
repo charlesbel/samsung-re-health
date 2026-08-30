@@ -54,7 +54,7 @@ def test_daily_steps_returns_consolidated_value_not_raw_records(tmp_path: Path):
         source_type=-2,
     )
 
-    report = HealthAnalytics(cache).steps(date(2026, 8, 28))
+    report = HealthAnalytics(cache, timezone="Europe/Paris").steps(date(2026, 8, 28))
 
     assert {key: report[key] for key in ("date", "steps", "distance_m", "calories_kcal")} == {
         "date": "2026-08-28",

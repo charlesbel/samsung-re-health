@@ -398,7 +398,9 @@ def test_activity_week_comparison_uses_one_authoritative_daily_total(tmp_path: P
         source_type=0,
     )
 
-    report = HealthAnalysisEngine(c).activity_week(date(2026, 8, 28), compare_previous=True)
+    report = HealthAnalysisEngine(c, timezone="Europe/Paris").activity_week(
+        date(2026, 8, 28), compare_previous=True
+    )
 
     assert report["distance_km"] == 9.0
     assert report["comparison"]["previous_distance_km"] == 3.0

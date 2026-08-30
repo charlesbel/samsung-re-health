@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 from .cache import HealthCache
 
+UTC = ZoneInfo("UTC")
 PARIS = ZoneInfo("Europe/Paris")
 STEP_DAILY = "com.samsung.shealth.step_daily_trend"
 SLEEP = "com.samsung.health.sleep"
@@ -17,13 +18,13 @@ def _ms(value: datetime) -> int:
     return int(value.timestamp() * 1000)
 
 
-def _day_bounds(day: date, tz: ZoneInfo = PARIS) -> tuple[int, int]:
+def _day_bounds(day: date, tz: ZoneInfo = UTC) -> tuple[int, int]:
     start = datetime.combine(day, time.min, tz)
     return _ms(start), _ms(start + timedelta(days=1)) - 1
 
 
 class HealthAnalytics:
-    def __init__(self, cache: HealthCache, *, timezone: str | ZoneInfo = "Europe/Paris") -> None:
+    def __init__(self, cache: HealthCache, *, timezone: str | ZoneInfo = "UTC") -> None:
         self.cache = cache
         self.tz = ZoneInfo(timezone) if isinstance(timezone, str) else timezone
 
@@ -78,8 +79,8 @@ class HealthAnalytics:
 
     def sleep(self, day: date) -> dict:
         # A sleep day is the night that wakes on `day`, including late morning sleep.
-        start = datetime.combine(day - timedelta(days=1), time(12), PARIS)
-        end = datetime.combine(day, time(18), PARIS)
+        start = datetime.combine(day - timedelta(days=1), time(12), self.tz)
+        end = datetime.combine(day, time(18), self.tz)
         records = self.cache.records(SLEEP, since_ms=_ms(start), until_ms=_ms(end))
         intervals = sorted(
             (int(row["start_time"]), int(row["end_time"]))
@@ -182,7 +183,7 @@ class HealthAnalytics:
             "weight_kg": round(float(latest["weight"]), 2)
             if isinstance(latest.get("weight"), (int, float))
             else None,
-            "measured_at": datetime.fromtimestamp(measured_ms / 1000, PARIS).isoformat()
+            "measured_at": datetime.fromtimestamp(measured_ms / 1000, self.tz).isoformat()
             if measured_ms
             else None,
             "calculations": {
@@ -198,7 +199,7 @@ class HealthAnalytics:
                 "measured_at": {
                     "kind": "direct_account_field",
                     "field": f"{WEIGHT}.start_time or create_time",
-                    "rendering": "Europe/Paris ISO-8601",
+                    "rendering": f"{getattr(self.tz, 'key', str(self.tz))} ISO-8601",
                 },
             },
         }

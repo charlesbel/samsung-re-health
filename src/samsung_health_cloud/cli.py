@@ -800,7 +800,7 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
             day = (
                 _parse_day(getattr(args, "day", None))
                 if args.command != "weight"
-                else datetime.now(PARIS).date()
+                else datetime.now(ZoneInfo(args.timezone)).date()
             )
             window_start = datetime.combine(day - timedelta(days=1), datetime.min.time(), PARIS)
             window_end = datetime.combine(day + timedelta(days=1), datetime.min.time(), PARIS)

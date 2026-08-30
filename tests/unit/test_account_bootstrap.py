@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import stat
+import sys
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -301,6 +302,9 @@ def test_cli_auth_complete_consumes_redirect_before_validation(tmp_path: Path, c
     assert not redirect.exists()
 
 
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="xdg-mime handler installation is Linux-only"
+)
 def test_install_handler_targets_health_capture_module(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setattr(cli.shutil, "which", lambda name: "/usr/bin/xdg-mime")

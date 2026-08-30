@@ -1,0 +1,4 @@
+schemas/master-state-v1.schema.json text eol=lf
+src/samsung_health_cloud/schemas/master-state-v1.schema.json text eol=lf
+tests/contract/fixtures/master-state-v1.synthetic.json text eol=lf
+.skills/samsung-account-auth/SKILL.md text eol=lf

@@ -1,21 +1,48 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
 from .auth import SamsungHealthCloudError, safe_http_call
 from .scsp import APP_VERSION
 
+__all__ = ["DATA_URL", "CloudDataClient"]
+
 DATA_URL = "https://api.samsungcloud.com"
 _MANIFEST_PATTERN = re.compile(r"com\.samsung\.(?:health|shealth)(?:\.[a-z0-9_]+)+")
 _E2EE_HEADERS = {"enabled": "ON", "disabled": "OFF", "none": "NONE"}
+_ALLOWED_DATA_HOST_SUFFIXES = ("samsungcloud.com",)
+
+
+def _validate_data_url(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise SamsungHealthCloudError("data transport must use HTTPS")
+    if not parsed.hostname:
+        raise SamsungHealthCloudError("data transport URL missing hostname")
+    if parsed.username or parsed.password:
+        raise SamsungHealthCloudError("data transport userinfo forbidden")
+    hostname = parsed.hostname.lower()
+    if not any(
+        hostname == suffix or hostname.endswith(f".{suffix}")
+        for suffix in _ALLOWED_DATA_HOST_SUFFIXES
+    ):
+        raise SamsungHealthCloudError(
+            f"untrusted host for health data transport: '{hostname}'"
+        )
+    return url
 
 
 class CloudDataClient:
-    def __init__(self, client: httpx.Client) -> None:
+    """Strictly GET-only client for fetching documents from Samsung Cloud data endpoints."""
+
+    def __init__(self, client: httpx.Client, *, base_url: str = DATA_URL) -> None:
         self.client = client
+        self.base_url = _validate_data_url(base_url)
 
     def list_documents(
         self,
@@ -53,15 +80,19 @@ class CloudDataClient:
             params["start_time"] = str(start_time)
         if end_time is not None:
             params["end_time"] = str(end_time)
+
+        target_url = f"{self.base_url}/data/v3/{manifest_id}/documents"
+        _validate_data_url(target_url)
+
         response = safe_http_call(
             "document GET",
             lambda: self.client.get(
-                f"{DATA_URL}/data/v3/{manifest_id}/documents",
+                target_url,
                 params=params,
                 headers={
                     "Content-Type": "application/json",
                     "Accept": "application/json",
-                    "User-Agent": f"SM-S938B; HERMES; com.sec.android.app.shealth={APP_VERSION}",
+                    "User-Agent": f"SM-S928B; ANDROID; com.sec.android.app.shealth={APP_VERSION}",
                     "authorization": cloud_authorization,
                     "x-sc-e2ee-state": _E2EE_HEADERS[e2ee_state],
                 },
@@ -85,45 +116,38 @@ class CloudDataClient:
         manifest_id: str,
         schema_revision: int,
         cloud_authorization: str,
-        page_size: int = 200,
-        start_page_token: str | None = None,
+        limit: int = 1000,
         e2ee_state: str = "disabled",
+        start_page_token: str | None = None,
         start_time: int | None = None,
         end_time: int | None = None,
-    ):
-        page_token = start_page_token
-        seen_tokens: set[str] = {start_page_token} if start_page_token else set()
-        while True:
-            payload = self.list_documents(
+    ) -> Iterator[dict[str, Any]]:
+        page_token: str | None = start_page_token
+        seen_tokens: set[str] = set()
+        if page_token:
+            seen_tokens.add(page_token)
+        first = True
+        while page_token or first:
+            first = False
+            page = self.list_documents(
                 manifest_id=manifest_id,
                 schema_revision=schema_revision,
                 cloud_authorization=cloud_authorization,
-                limit=page_size,
+                limit=limit,
                 page_token=page_token,
                 e2ee_state=e2ee_state,
                 start_time=start_time,
                 end_time=end_time,
             )
-            documents = payload.get("documents")
-            if not isinstance(documents, list):
-                raise SamsungHealthCloudError(
-                    "document GET response is missing its documents list"
-                )
-            has_next = payload.get("hasNext") is True
-            next_page_token = payload.get("nextPageToken") if has_next else None
-            if has_next and (
-                not isinstance(next_page_token, str) or not next_page_token
-            ):
-                raise SamsungHealthCloudError(
-                    "document GET response is missing its next page token"
-                )
-            if next_page_token is not None and next_page_token in seen_tokens:
-                raise SamsungHealthCloudError("document pagination loop detected")
-            yield payload
-            if not has_next:
-                return
-            seen_tokens.add(next_page_token)
-            page_token = next_page_token
+            next_token = page.get("nextPageToken")
+            if not isinstance(next_token, str) or not next_token:
+                yield page
+                break
+            if next_token == page_token or next_token in seen_tokens:
+                raise SamsungHealthCloudError(f"pagination loop: {manifest_id}")
+            seen_tokens.add(next_token)
+            yield page
+            page_token = next_token
 
     def iter_documents(
         self,
@@ -131,20 +155,22 @@ class CloudDataClient:
         manifest_id: str,
         schema_revision: int,
         cloud_authorization: str,
-        page_size: int = 200,
-        start_page_token: str | None = None,
+        page_size: int = 1000,
         e2ee_state: str = "disabled",
         start_time: int | None = None,
         end_time: int | None = None,
-    ):
-        for payload in self.iter_pages(
+    ) -> Iterator[dict[str, Any]]:
+        for page in self.iter_pages(
             manifest_id=manifest_id,
             schema_revision=schema_revision,
             cloud_authorization=cloud_authorization,
-            page_size=page_size,
-            start_page_token=start_page_token,
+            limit=page_size,
             e2ee_state=e2ee_state,
             start_time=start_time,
             end_time=end_time,
         ):
-            yield from payload["documents"]
+            documents = page.get("documents", [])
+            if isinstance(documents, list):
+                for doc in documents:
+                    if isinstance(doc, dict):
+                        yield doc

@@ -1,9 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://charlesbel.github.io/schemas/samsung-account/master-state-v1.schema.json",
+  "$id": "https://raw.githubusercontent.com/charlesbel/samsung-find/main/schemas/master-state-v1.schema.json",
   "title": "SamsungAccountMasterStateV1",
-  "description": "Neutral shared Samsung Account master state contract v1",
+  "description": "Neutral Samsung Account master authentication state contract (v1)",
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "schema",
     "schema_version",
@@ -28,15 +29,16 @@
       "minLength": 1
     },
     "created_at": {
-      "type": "integer",
+      "type": "number",
       "minimum": 0
     },
     "updated_at": {
-      "type": "integer",
+      "type": "number",
       "minimum": 0
     },
     "account": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["login_id"],
       "properties": {
         "login_id": {
@@ -44,37 +46,36 @@
           "minLength": 1
         },
         "user_id": {
-          "type": "string"
+          "type": ["string", "null"]
         }
-      },
-      "additionalProperties": false
+      }
     },
     "installation": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["physical_address"],
       "properties": {
         "physical_address": {
           "type": "string",
           "minLength": 1
         }
-      },
-      "additionalProperties": false
+      }
     },
     "identity": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["auth_server_url", "userauth_token"],
       "properties": {
         "auth_server_url": {
           "type": "string",
-          "pattern": "^https://[a-zA-Z0-9.-]+\\.(samsungosp\\.com|samsungcloud\\.com|samsung\\.com)(:[0-9]+)?(/.*)?$"
+          "format": "uri",
+          "pattern": "^https://(?:(?:[A-Za-z0-9-]+\\.)*samsungosp\\.com|account\\.samsung\\.com)/?$"
         },
         "userauth_token": {
           "type": "string",
           "minLength": 1
         }
-      },
-      "additionalProperties": false
+      }
     }
-  },
-  "additionalProperties": false
+  }
 }

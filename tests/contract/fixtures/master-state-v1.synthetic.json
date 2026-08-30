@@ -1,18 +1,18 @@
 {
   "schema": "io.github.charlesbel.samsung-account.master",
   "schema_version": 1,
-  "generation": "synthetic-gen-001",
+  "generation": "synthetic-test-generation-0001",
   "created_at": 1700000000,
   "updated_at": 1700000000,
   "account": {
-    "login_id": "synthetic-user@example.com",
-    "user_id": "synthetic-uid-12345"
+    "login_id": "synthetic-test-user@example.invalid",
+    "user_id": "synthetic-test-user-id"
   },
   "installation": {
-    "physical_address": "synthetic-physical-addr"
+    "physical_address": "synthetic-test-physical-address"
   },
   "identity": {
-    "auth_server_url": "https://eu-auth2.samsungosp.com",
-    "userauth_token": "synthetic-master-token-xyz"
+    "auth_server_url": "https://synthetic-test.samsungosp.com",
+    "userauth_token": "synthetic-test-master-token-not-real"
   }
 }

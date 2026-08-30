@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 
@@ -7,10 +8,21 @@ import pytest
 SCHEMA_PATH = Path(__file__).parent.parent.parent / "schemas" / "master-state-v1.schema.json"
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
+CANONICAL_SCHEMA_SHA256 = "c4cc1c62937200fbb95d2def0b39f3aa4db61ac2cc761a6bbb4591cca3a8c183"
+CANONICAL_SYNTHETIC_SHA256 = "3381a2b1b4d4bda636c4364d0896cdba5bb2bfbf00f3b459ec559ad673dd0dca"
+
 
 @pytest.fixture
 def master_schema() -> dict:
     return json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+
+
+def test_master_state_v1_canonical_sha256_hashes():
+    schema_bytes = SCHEMA_PATH.read_bytes()
+    assert hashlib.sha256(schema_bytes).hexdigest() == CANONICAL_SCHEMA_SHA256
+
+    synthetic_bytes = (FIXTURES_DIR / "master-state-v1.synthetic.json").read_bytes()
+    assert hashlib.sha256(synthetic_bytes).hexdigest() == CANONICAL_SYNTHETIC_SHA256
 
 
 def test_master_state_v1_valid_fixture_conforms(master_schema):

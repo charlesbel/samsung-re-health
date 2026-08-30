@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import fcntl
 import json
 import os
-import stat
-import tempfile
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
+from typing import Iterator
 
 from .auth import SamsungHealthCloudError
+from .file_lock import InterprocessLock, secure_atomic_write, secure_read_file
+
+__all__ = ["HealthState", "StateStore"]
 
 
 @dataclass(slots=True)
@@ -53,39 +54,36 @@ class StateStore:
         return self.path.with_name(f"{self.path.name}.lock")
 
     @contextmanager
-    def locked(self):
+    def locked(self) -> Iterator[None]:
         self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+        flags = os.O_CREAT | os.O_RDWR
+        if hasattr(os, "O_CLOEXEC"):
+            flags |= os.O_CLOEXEC
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
         fd = os.open(self.lock_path, flags, 0o600)
+        lock = InterprocessLock(fd, exclusive=True)
         try:
-            os.fchmod(fd, 0o600)
-            fcntl.flock(fd, fcntl.LOCK_EX)
+            if hasattr(os, "fchmod") and os.name != "nt":
+                os.fchmod(fd, 0o600)
+            lock.acquire()
             yield
         finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+            lock.release()
             os.close(fd)
 
     def load(self) -> HealthState:
         if not self.path.exists():
             return HealthState()
-        if self.path.is_symlink():
-            raise SamsungHealthCloudError("Samsung Health state must not be a symlink")
+        content = secure_read_file(self.path, require_private=True, lock=True)
         try:
-            file_stat = self.path.stat()
-        except OSError as exc:
-            raise SamsungHealthCloudError("unable to inspect Samsung Health state") from exc
-        if file_stat.st_uid != os.getuid():
-            raise SamsungHealthCloudError("Samsung Health state has an unexpected owner")
-        if stat.S_IMODE(file_stat.st_mode) & 0o077:
-            raise SamsungHealthCloudError("Samsung Health state permissions must be private")
-        payload: object | None = None
-        failed = False
-        try:
-            payload = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            failed = True
-        if failed or not isinstance(payload, dict):
+            payload = json.loads(content)
+        except ValueError as exc:
+            raise SamsungHealthCloudError("unable to read Samsung Health state") from exc
+
+        if not isinstance(payload, dict):
             raise SamsungHealthCloudError("unable to read Samsung Health state")
+
         allowed = {item.name for item in fields(HealthState)}
         selected = {key: value for key, value in payload.items() if key in allowed}
         string_fields = {
@@ -113,17 +111,5 @@ class StateStore:
         return HealthState(**selected)
 
     def save(self, state: HealthState) -> None:
-        self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        fd, temporary_name = tempfile.mkstemp(prefix=f".{self.path.name}.", dir=self.path.parent)
-        temporary = Path(temporary_name)
-        try:
-            os.fchmod(fd, 0o600)
-            with os.fdopen(fd, "w", encoding="utf-8") as stream:
-                json.dump(asdict(state), stream, ensure_ascii=False, sort_keys=True)
-                stream.write("\n")
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(temporary, self.path)
-            os.chmod(self.path, 0o600)
-        finally:
-            temporary.unlink(missing_ok=True)
+        content = json.dumps(asdict(state), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        secure_atomic_write(self.path, content, file_mode=0o600, dir_mode=0o700)

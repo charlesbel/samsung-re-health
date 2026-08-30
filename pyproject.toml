@@ -1,0 +1,29 @@
+[project]
+name = "samsung-health-cloud"
+version = "0.6.0"
+description = "Client local strictement en lecture seule pour les propres données Samsung Health"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = ["httpx>=0.28,<0.29"]
+
+[project.scripts]
+samsung-health = "samsung_health_cloud.cli:main"
+samsung-health-cloud = "samsung_health_cloud.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.3,<9"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/samsung_health_cloud"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "docs", "README.md", "pyproject.toml", "uv.lock"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]

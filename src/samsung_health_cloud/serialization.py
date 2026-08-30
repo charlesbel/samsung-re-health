@@ -27,7 +27,17 @@ def redact_secrets(data: Any) -> Any:
             low = key.lower()
             if low in _SECRET_KEYS:
                 result[key] = "<redacted>"
-            elif any(s in low for s in ("token", "authorization")):
+            elif any(
+                s in low
+                for s in (
+                    "token",
+                    "authorization",
+                    "secret",
+                    "password",
+                    "private_",
+                    "credential",
+                )
+            ):
                 result[key] = (
                     "<redacted>" if isinstance(value, str) and value else value
                 )

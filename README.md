@@ -126,6 +126,22 @@ samsung-re-health analyze sleep --latest
 
 Synchronization reads cloud documents but writes the local SQLite mirror and local session/checkpoint files. Use `--no-sync` on supported query commands when you want a strictly offline read.
 
+### Keeping the local mirror fresh
+
+The package does not install a daemon, cron entry, systemd timer or other background scheduler. Online query commands such as `analyze` and `summary` refresh the manifests they need unless `--no-sync` is supplied, but they do not guarantee that every available manifest stays current.
+
+If you want a broadly populated mirror for reliable offline queries, schedule the CLI externally under your own user account. For example:
+
+```bash
+# Low-frequency incremental refresh of all known types
+samsung-re-health sync --all-types --days 14
+
+# Optional, less frequent full-history reconciliation
+samsung-re-health sync --all-types --all-history --force
+```
+
+The first command is suitable for a daily user-managed task. The full-history form is optional and should run much less often, such as weekly, because it can be expensive and the private service may ignore requested time bounds. Run only one synchronization at a time. Removing an external scheduler does not remove the SQLite mirror or disable on-demand synchronization; it only allows unqueried data in the mirror to become stale.
+
 See [docs/cli.md](docs/cli.md) for every command, selector, output format and exit code.
 
 ## Python SDK

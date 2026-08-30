@@ -122,3 +122,17 @@ def test_mcp_docs_explain_sync_effect_annotations() -> None:
     assert "`idempotentHint=false`" in docs
     assert "`destructiveHint=false`" in docs
     assert "`openWorldHint=true`" in docs
+
+
+def test_docs_explain_sqlite_refresh_and_external_scheduler_boundary() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    cli_docs = (ROOT / "docs" / "cli.md").read_text(encoding="utf-8")
+    for docs in (readme, cli_docs):
+        assert "SQLite" in docs
+        assert "no built-in daemon or scheduler" in docs or "does not install a daemon" in docs
+        assert "sync --all-types --days 14" in docs
+        assert "sync --all-types --all-history --force" in docs
+        assert (
+            "Deleting an external scheduled task" in docs
+            or "Removing an external scheduler" in docs
+        )

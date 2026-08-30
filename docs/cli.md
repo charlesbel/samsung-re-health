@@ -126,6 +126,14 @@ samsung-re-health sync [--days N | --all-history] [--all-types] [--force]
 
 Synchronization writes to the private local SQLite mirror and checkpoint state. Cloud Health documents are fetched through validated HTTPS GET requests; the current client exposes no Health-record create/update/delete operation. This describes the implemented command surface, not every operation available on Samsung's private services. `--force`, `--all-types`, and `--all-history` can be expensive because the private API may ignore time bounds.
 
+### On-demand refresh and external scheduling
+
+The package has no built-in daemon or scheduler and does not create cron entries or systemd timers. Query commands that support synchronization refresh only their required manifests unless `--no-sync` is used. This is sufficient for on-demand use, but it does not keep the complete mirror current.
+
+Users who need fresh offline coverage can schedule `samsung-re-health sync --all-types --days 14` externally at a low frequency. A separate `samsung-re-health sync --all-types --all-history --force` run can perform an occasional full reconciliation. Keep full-history runs infrequent, avoid overlapping sync processes, and treat the scheduler configuration as private machine administration rather than package state.
+
+Deleting an external scheduled task leaves the SQLite database and existing records intact. Later online analyses can refresh their selected types, while `--no-sync` continues to read whatever is already stored locally.
+
 ## Direct Cloud Compatibility Interfaces
 
 ```bash

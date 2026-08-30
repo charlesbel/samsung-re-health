@@ -12,7 +12,7 @@ def test_scsp_registers_without_hardware_id_then_issues_redacted_cloud_token():
         requests.append(request)
         assert request.headers["x-sc-app-id"] == "1y90e30264"
         assert request.headers["x-sc-cdid"] == "stable-cdid"
-        assert request.headers["x-sc-access-token"] == "health-secret"
+        assert request.headers["x-sc-access-token"] == "synthetic-test-health-token"
         assert request.headers["x-sc-uid"] == "uid-1"
         assert "x-sc-pdid" not in request.headers
         if request.url.path.endswith("/register"):
@@ -27,7 +27,7 @@ def test_scsp_registers_without_hardware_id_then_issues_redacted_cloud_token():
             200,
             json={
                 "tokenType": "Bearer",
-                "accessToken": "cloud-secret",
+                "accessToken": "synthetic-test-cloud-token",
                 "expiresAt": 2_000_000_000,
             },
         )
@@ -38,16 +38,16 @@ def test_scsp_registers_without_hardware_id_then_issues_redacted_cloud_token():
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         identity = ScspIdentity(client, profile=profile)
         registration_id = identity.register(
-            health_access_token="health-secret", user_id="uid-1", cdid="stable-cdid"
+            health_access_token="synthetic-test-health-token", user_id="uid-1", cdid="stable-cdid"
         )
         token = identity.issue_token(
-            health_access_token="health-secret", user_id="uid-1", cdid="stable-cdid"
+            health_access_token="synthetic-test-health-token", user_id="uid-1", cdid="stable-cdid"
         )
 
     assert registration_id == "registration-1"
-    assert token.authorization == "Bearer cloud-secret"
+    assert token.authorization == "Bearer synthetic-test-cloud-token"
     assert token.expires_at == 2_000_000_000
-    assert "cloud-secret" not in repr(token)
+    assert "synthetic-test-cloud-token" not in repr(token)
     assert [request.url.path for request in requests] == [
         "/identity/v1/register",
         "/identity/v1/tokens",

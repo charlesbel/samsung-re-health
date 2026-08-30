@@ -5,13 +5,13 @@
   "created_at": 1700000000,
   "updated_at": 1700000000,
   "account": {
-    "login_id": "synthetic-user@example.com"
+    "login_id": "synthetic-test-user@example.invalid"
   },
   "installation": {
-    "physical_address": "synthetic-physical-addr"
+    "physical_address": "synthetic-test-physical-address"
   },
   "identity": {
     "auth_server_url": "https://untrusted-host.example.com",
-    "userauth_token": "synthetic-master-token-xyz"
+    "userauth_token": "synthetic-test-master-token-not-real"
   }
 }

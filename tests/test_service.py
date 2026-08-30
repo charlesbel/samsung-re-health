@@ -29,16 +29,18 @@ class AssertingLockedStore(StateStore):
 
 class FakeHealthAuth:
     def issue(self, **kwargs):
-        assert kwargs["master_token"] == "master-secret"
+        assert kwargs["master_token"] == "synthetic-test-master-token"
         assert kwargs["login_id"] == "person@example.com"
         assert kwargs["physical_address"] == "physical-id"
         assert kwargs["auth_server_url"] == "https://eu-auth2.samsungosp.com"
-        return HealthToken("health-secret", "refresh-secret", "uid-1", 100, 200, "bearer")
+        return HealthToken(
+            "synthetic-test-health-token", "refresh-secret", "uid-1", 100, 200, "bearer"
+        )
 
 
 class FakeScsp:
     def register(self, **kwargs):
-        assert kwargs["health_access_token"] == "health-secret"
+        assert kwargs["health_access_token"] == "synthetic-test-health-token"
         assert kwargs["user_id"] == "uid-1"
         assert kwargs["cdid"]
         return "registration-1"
@@ -53,14 +55,14 @@ def test_service_initializes_from_samsung_find_state_without_exposing_master(tmp
         json.dumps(
             {
                 "login_id": "person@example.com",
-                "userauth_token": "master-secret",
+                "userauth_token": "synthetic-test-master-token",
                 "device_id": "physical-id",
                 "auth_server_url": "https://eu-auth2.samsungosp.com",
             }
         )
     )
     credentials = load_master_credentials(master_path)
-    assert "master-secret" not in repr(credentials)
+    assert "synthetic-test-master-token" not in repr(credentials)
     assert "person@example.com" not in repr(credentials)
     assert "uid-1" not in repr(HealthToken("access", "refresh", "uid-1", 1, 2, "bearer"))
 
@@ -81,7 +83,7 @@ def test_service_initializes_from_samsung_find_state_without_exposing_master(tmp
     assert state.cloud_expires_at == 2_000_000_000
     assert len(state.cdid) == 64
     assert StateStore.load(store) == state
-    assert "health-secret" not in repr(state)
+    assert "synthetic-test-health-token" not in repr(state)
 
 
 def test_service_checkpoints_successful_stages_before_a_later_failure(tmp_path):
@@ -90,7 +92,7 @@ def test_service_checkpoints_successful_stages_before_a_later_failure(tmp_path):
         json.dumps(
             {
                 "login_id": "person@example.com",
-                "userauth_token": "master-secret",
+                "userauth_token": "synthetic-test-master-token",
                 "device_id": "physical-id",
                 "auth_server_url": "https://eu-auth2.samsungosp.com",
             }
@@ -118,6 +120,6 @@ def test_service_checkpoints_successful_stages_before_a_later_failure(tmp_path):
 
     checkpoint = store.load()
     assert checkpoint.cdid
-    assert checkpoint.health_access_token == "health-secret"
+    assert checkpoint.health_access_token == "synthetic-test-health-token"
     assert checkpoint.registration_id == "registration-1"
     assert not checkpoint.cloud_token

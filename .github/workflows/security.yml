@@ -10,10 +10,11 @@ jobs:
   privacy-gate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Verify no private paths or secrets in repository
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318edeed2796c01c3abba81adc8 # v5.3.0
+        with:
+          python-version: "3.12"
+      - name: Run public-tree privacy scanner
         run: |
-          echo "Checking for maintainer paths and private artifacts..."
-          ! grep -r "/home/hermes" . --exclude-dir=.git --exclude-dir=.venv
-          ! grep -rE "([a-f0-9]{32,})" tests/contract/fixtures/ tests/unit/ src/
-          echo "Privacy gate check passed."
+          python scripts/verify_privacy.py

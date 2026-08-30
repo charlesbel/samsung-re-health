@@ -18,7 +18,7 @@ def test_health_auth_uses_pkce_without_scope_and_redacts_tokens():
             seen["authorize"] = params
             assert params["client_id"] == HEALTH_CLIENT_ID
             assert params["response_type"] == "code"
-            assert params["userauth_token"] == "master-secret"
+            assert params["userauth_token"] == "synthetic-test-master-token"
             assert "scope" not in params
             return httpx.Response(
                 200,
@@ -34,8 +34,8 @@ def test_health_auth_uses_pkce_without_scope_and_redacts_tokens():
         return httpx.Response(
             200,
             json={
-                "access_token": "health-secret",
-                "refresh_token": "refresh-secret",
+                "access_token": "synthetic-test-health-token",
+                "refresh_token": "synthetic-test-refresh-token",
                 "expires_in": 100,
                 "refresh_token_expires_in": 200,
                 "token_type": "bearer",
@@ -45,17 +45,17 @@ def test_health_auth_uses_pkce_without_scope_and_redacts_tokens():
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         token = HealthAuth(client).issue(
             auth_server_url="https://eu-auth2.samsungosp.com",
-            master_token="master-secret",
+            master_token="synthetic-test-master-token",
             login_id="person@example.com",
             verifier="fixed-verifier",
             physical_address="fixed-physical",
         )
 
     assert token.user_id == "uid-1"
-    assert token.access_token == "health-secret"
-    assert token.refresh_token == "refresh-secret"
-    assert "health-secret" not in repr(token)
-    assert "refresh-secret" not in repr(token)
+    assert token.access_token == "synthetic-test-health-token"
+    assert token.refresh_token == "synthetic-test-refresh-token"
+    assert "synthetic-test-health-token" not in repr(token)
+    assert "synthetic-test-refresh-token" not in repr(token)
     assert set(seen) == {"authorize", "token"}
 
 
@@ -69,10 +69,10 @@ def test_health_auth_detaches_sensitive_httpx_exception():
     ):
         HealthAuth(client).issue(
             auth_server_url="https://eu-auth2.samsungosp.com",
-            master_token="master-secret",
+            master_token="synthetic-test-master-token",
             login_id="person@example.com",
             verifier="fixed-verifier",
             physical_address="fixed-physical",
         )
-    assert "master-secret" not in str(captured.value)
+    assert "synthetic-test-master-token" not in str(captured.value)
     assert captured.value.__context__ is None

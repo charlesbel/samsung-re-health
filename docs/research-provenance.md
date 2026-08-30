@@ -18,6 +18,12 @@
    - Unverified fields present in cloud synchronization payloads.
    - Kept in their exact raw field names with neutral descriptive statistics (count, min, max, mean, presence) without inferring clinical semantics.
 
+### Bundled Baseline Catalog & Non-Personal Guarantee
+
+The runtime baseline catalog bundled in `src/samsung_health_cloud/resources/manifests.json` contains strictly non-personal, account-independent manifest IDs and schema revision numbers:
+- All push IDs are strictly empty strings (`"push_id": ""`), ensuring no device or account routing tokens are packaged.
+- Revisions reflect the baseline schemas at release time. As Samsung Cloud updates data schemas over time, revisions in the bundled baseline may become superseded. When online synchronization is run (`samsung-health sync`), the client automatically discovers and updates local manifests with active cloud revisions.
+
 ### Attribution and Independent Verification
 
 All field definitions in `samsung_health_cloud/semantics.py` explicitly declare their provenance tag, reference source, and caveats. Structural coverage of fields is tracked independently from semantic interpretation to guarantee full data fidelity.

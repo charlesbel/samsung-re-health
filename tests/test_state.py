@@ -13,9 +13,9 @@ def test_state_store_writes_atomically_with_private_permissions_and_redacted_rep
 ):
     path = tmp_path / "state.json"
     state = HealthState(
-        health_access_token="health-secret",
-        health_refresh_token="refresh-secret",
-        cloud_token="cloud-secret",
+        health_access_token="synthetic-test-health-token",
+        health_refresh_token="synthetic-test-refresh-token",
+        cloud_token="synthetic-test-cloud-token",
         user_id="user-id",
         cdid="client-device-id",
         registration_id="registration-id",
@@ -28,9 +28,9 @@ def test_state_store_writes_atomically_with_private_permissions_and_redacted_rep
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
     assert restored == state
     rendered = repr(restored)
-    assert "health-secret" not in rendered
-    assert "refresh-secret" not in rendered
-    assert "cloud-secret" not in rendered
+    assert "synthetic-test-health-token" not in rendered
+    assert "synthetic-test-refresh-token" not in rendered
+    assert "synthetic-test-cloud-token" not in rendered
     assert "user-id" not in rendered
     assert "client-device-id" not in rendered
     assert "registration-id" not in rendered

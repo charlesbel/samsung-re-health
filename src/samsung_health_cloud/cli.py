@@ -55,8 +55,15 @@ DEFAULT_CACHE = Path(platformdirs.user_data_dir("samsung-health-cloud")) / "heal
 CORE_MANIFEST_IDS = (STEP_DAILY, SLEEP, HEART_RATE, WEIGHT)
 
 
+class JsonArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        err = error_envelope("usage_error", message)
+        print(format_output(err, output_format="json"))
+        sys.exit(2)
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = JsonArgumentParser(
         prog="samsung-health",
         description="Samsung Health Cloud CLI — typed, versioned, strictly read-only client",
     )
@@ -99,7 +106,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format (default: json)",
     )
 
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(
+        dest="command", required=True, parser_class=JsonArgumentParser
+    )
 
     subparsers.add_parser("init", help="Initialiser ou renouveler la session Health/SCSP")
     subparsers.add_parser("status", help="Afficher la présence et les échéances des jetons")

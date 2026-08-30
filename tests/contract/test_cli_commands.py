@@ -59,3 +59,30 @@ def test_cli_error_envelope_and_exit_code(tmp_path: Path, capsys, error_envelope
     jsonschema.validate(instance=payload, schema=error_envelope_schema)
     assert payload["ok"] is False
     assert payload["error"]["code"] == "usage_error"
+
+
+def test_cli_unknown_argument_produces_single_json_error(capsys, error_envelope_schema):
+    exit_code = cli.main(["--nonexistent-flag"])
+    assert exit_code == 2
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    jsonschema.validate(instance=payload, schema=error_envelope_schema)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "usage_error"
+    assert (
+        "required" in payload["error"]["message"].lower()
+        or "unrecognized" in payload["error"]["message"].lower()
+    )
+
+
+def test_cli_missing_positional_produces_single_json_error(capsys, error_envelope_schema):
+    exit_code = cli.main(["data"])
+    assert exit_code == 2
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    jsonschema.validate(instance=payload, schema=error_envelope_schema)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "usage_error"
+    assert "required" in payload["error"]["message"].lower()

@@ -94,7 +94,7 @@ def test_multiprocessing_contention_and_serialization(tmp_path: Path):
     assert final_val == 30
 
 
-def test_security_rejections_symlinks_and_modes(tmp_path: Path):
+def test_security_rejects_symlinks(tmp_path: Path):
     # 1. Symlinked parent directory rejection
     real_parent = tmp_path / "real_dir"
     real_parent.mkdir(mode=0o700)
@@ -104,14 +104,7 @@ def test_security_rejections_symlinks_and_modes(tmp_path: Path):
     with pytest.raises(SamsungHealthCloudError, match="symlink"):  # noqa: SIM117
         verify_directory_security(sym_parent)
 
-    # 2. Overpermissive parent directory (0755) fail-closed
-    bad_parent = tmp_path / "bad_perm"
-    bad_parent.mkdir(mode=0o755)
-    bad_parent.chmod(0o755)
-    with pytest.raises(SamsungHealthCloudError, match="permissions"):
-        verify_directory_security(bad_parent)
-
-    # 3. Symlinked target file rejection
+    # 2. Symlinked target file rejection
     real_target = real_parent / "real.json"
     real_target.write_text("{}", encoding="utf-8")
     real_target.chmod(0o600)
@@ -124,12 +117,21 @@ def test_security_rejections_symlinks_and_modes(tmp_path: Path):
     with pytest.raises(SamsungHealthCloudError, match="symlink"):  # noqa: SIM117
         secure_atomic_write(sym_target, "{}")
 
-    # 4. Symlinked lock file rejection
+    # 3. Symlinked lock file rejection
     sym_lock = real_parent / "sym.json.lock"
     sym_lock.symlink_to(real_target)
     with pytest.raises(SamsungHealthCloudError, match="symlink"):  # noqa: SIM117
         with SidecarLock(sym_lock, exclusive=True):
             pass
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits are not Windows ACLs")
+def test_security_rejects_overpermissive_posix_directory(tmp_path: Path):
+    bad_parent = tmp_path / "bad_perm"
+    bad_parent.mkdir(mode=0o755)
+    bad_parent.chmod(0o755)
+    with pytest.raises(SamsungHealthCloudError, match="permissions"):
+        verify_directory_security(bad_parent)
 
 
 def test_windows_locking_branch_monkeypatch(tmp_path: Path, monkeypatch):

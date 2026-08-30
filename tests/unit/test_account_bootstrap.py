@@ -85,8 +85,9 @@ def test_auth_start_uses_exact_entry_point_without_redirect_and_writes_account_p
     pending = json.loads(pending_path.read_text(encoding="utf-8"))
     assert set(pending) == {"code_verifier", "created_at", "device_id", "state"}
     assert len(pending["code_verifier"]) == 43
-    assert stat.S_IMODE(pending_path.stat().st_mode) == 0o600
-    assert stat.S_IMODE(master.parent.stat().st_mode) == 0o700
+    if sys.platform != "win32":
+        assert stat.S_IMODE(pending_path.stat().st_mode) == 0o600
+        assert stat.S_IMODE(master.parent.stat().st_mode) == 0o700
     assert not (tmp_path / "samsung-find").exists()
 
 
@@ -168,7 +169,8 @@ def test_auth_complete_writes_only_private_neutral_master_with_fixture_schema(
     assert payload["identity"].keys() == fixture["identity"].keys()
     assert payload["schema"] == fixture["schema"]
     assert payload["schema_version"] == fixture["schema_version"]
-    assert stat.S_IMODE(master.stat().st_mode) == 0o600
+    if sys.platform != "win32":
+        assert stat.S_IMODE(master.stat().st_mode) == 0o600
     assert not pending.exists()
     assert not (tmp_path / "samsung-find").exists()
 
@@ -243,7 +245,8 @@ def test_capture_redirect_writes_private_account_file_and_rejects_wrong_callback
 
     assert capture_main(["capture_redirect", good]) == 0
     assert target.read_text(encoding="utf-8") == good
-    assert stat.S_IMODE(target.stat().st_mode) == 0o600
+    if sys.platform != "win32":
+        assert stat.S_IMODE(target.stat().st_mode) == 0o600
     target.unlink()
     assert capture_main(["capture_redirect", "ms-app://wrong?state=synthetic"]) == 2
     assert not target.exists()

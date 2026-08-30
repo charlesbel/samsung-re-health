@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -60,6 +61,7 @@ def test_load_master_credentials_rejects_symlink(tmp_path: Path):
         load_master_credentials(symlink_file)
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits are not Windows ACLs")
 def test_load_master_credentials_rejects_permissive_mode(tmp_path: Path):
     target = tmp_path / "master.json"
     target.write_text((FIXTURES_DIR / "master-state-v1.synthetic.json").read_text(encoding="utf-8"))

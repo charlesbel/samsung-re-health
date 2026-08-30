@@ -66,6 +66,7 @@ def test_service_initializes_from_samsung_find_state_without_exposing_master(tmp
             }
         )
     )
+    master_path.chmod(0o600)
     credentials = load_master_credentials(master_path)
     assert "synthetic-test-master-token" not in repr(credentials)
     assert "person@example.com" not in repr(credentials)
@@ -103,6 +104,7 @@ def test_service_checkpoints_successful_stages_before_a_later_failure(tmp_path):
             }
         )
     )
+    master_path.chmod(0o600)
 
     class FailingAfterRegistration(FakeScsp):
         def issue_token(self, **kwargs):

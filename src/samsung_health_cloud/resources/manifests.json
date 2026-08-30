@@ -1,0 +1,100 @@
+{
+  "manifests": [
+    {
+      "manifest_id": "com.samsung.health.blood_glucose",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 12
+    },
+    {
+      "manifest_id": "com.samsung.health.blood_pressure",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 13
+    },
+    {
+      "manifest_id": "com.samsung.health.body_temperature",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 10
+    },
+    {
+      "manifest_id": "com.samsung.health.caffeine_intake",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 10
+    },
+    {
+      "manifest_id": "com.samsung.health.electrocardiogram",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 5
+    },
+    {
+      "manifest_id": "com.samsung.health.exercise",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 17
+    },
+    {
+      "manifest_id": "com.samsung.health.food_info",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 10
+    },
+    {
+      "manifest_id": "com.samsung.health.heart_rate",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 18
+    },
+    {
+      "manifest_id": "com.samsung.health.oxygen_saturation",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 2
+    },
+    {
+      "manifest_id": "com.samsung.health.sleep",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 18
+    },
+    {
+      "manifest_id": "com.samsung.health.sleep_stage",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 1
+    },
+    {
+      "manifest_id": "com.samsung.health.step_count",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 5
+    },
+    {
+      "manifest_id": "com.samsung.health.stress",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 13
+    },
+    {
+      "manifest_id": "com.samsung.health.water_intake",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 10
+    },
+    {
+      "manifest_id": "com.samsung.health.weight",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 13
+    },
+    {
+      "manifest_id": "com.samsung.shealth.step_daily_trend",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 14
+    }
+  ]
+}

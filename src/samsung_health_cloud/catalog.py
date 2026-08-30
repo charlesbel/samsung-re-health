@@ -2,39 +2,40 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import tempfile
 from collections.abc import Iterable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
+from importlib.resources import files
 from pathlib import Path
 
-from .auth import SamsungHealthCloudError
+from .exceptions import SamsungHealthCloudError
+from .models import ManifestInfo
 
-_MANIFEST_ID = re.compile(r"com\.samsung\.(?:health|shealth)(?:\.[a-z0-9_]+)+")
+__all__ = ["CatalogStore", "ManifestInfo", "load_bundled_manifests"]
 
 
-@dataclass(frozen=True, slots=True)
-class ManifestInfo:
-    manifest_id: str
-    schema_revision: int
-    manifest_version: int
-    push_id: str = ""
-
-    def __post_init__(self) -> None:
-        if _MANIFEST_ID.fullmatch(self.manifest_id) is None:
-            raise ValueError("invalid Samsung Health manifest id")
-        if self.schema_revision < 0 or self.manifest_version < 0:
-            raise ValueError("manifest revisions must be non-negative")
+def load_bundled_manifests() -> list[ManifestInfo]:
+    try:
+        resource = files("samsung_health_cloud.resources").joinpath("manifests.json")
+        content = resource.read_text(encoding="utf-8")
+        payload = json.loads(content)
+        return [ManifestInfo(**entry) for entry in payload.get("manifests", [])]
+    except Exception as exc:
+        raise SamsungHealthCloudError(
+            "unable to load bundled Samsung Health manifest catalog"
+        ) from exc
 
 
 class CatalogStore:
-    """Private persisted catalog used by the runtime client."""
+    """Private persisted catalog used by the runtime client with bundled fallback."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
 
-    def load(self) -> list[ManifestInfo]:
+    def load(self, *, fallback_to_bundled: bool = True) -> list[ManifestInfo]:
         if not self.path.exists():
+            if fallback_to_bundled:
+                return load_bundled_manifests()
             return []
         try:
             payload = json.loads(self.path.read_text(encoding="utf-8"))

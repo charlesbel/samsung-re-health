@@ -51,7 +51,7 @@ APK analysé :
 - package : `com.sec.android.app.shealth` ;
 - version : `7.00.6.003` ;
 - source : endpoint de livraison Galaxy Store Samsung ;
-- appareil cible : `SM-S928B`, SDK 35 ;
+- cible d'architecture : profil universel Android ARM64, SDK 35 ;
 - SHA-256 : `a778cb804a4c0ad03d540d027fb3d473d2b54451468fb03f32f6c457831e3554` ;
 - certificat embarqué : sujet/émetteur Samsung Corporation, inspecté sans prétendre à une vérification cryptographique complète ni à une comparaison d’empreinte avec une version de confiance ;
 - JADX : 1.5.6, huit DEX traités séparément en mode `simple`.

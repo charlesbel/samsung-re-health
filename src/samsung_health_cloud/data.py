@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import httpx
 
 from .auth import SamsungHealthCloudError, safe_http_call
+from .models import DeviceProfile
 from .scsp import APP_VERSION
 
 __all__ = ["DATA_URL", "CloudDataClient"]
@@ -38,9 +39,16 @@ def _validate_data_url(url: str) -> str:
 class CloudDataClient:
     """Strictly GET-only client for fetching documents from Samsung Cloud data endpoints."""
 
-    def __init__(self, client: httpx.Client, *, base_url: str = DATA_URL) -> None:
+    def __init__(
+        self,
+        client: httpx.Client,
+        *,
+        base_url: str = DATA_URL,
+        profile: DeviceProfile | None = None,
+    ) -> None:
         self.client = client
         self.base_url = _validate_data_url(base_url)
+        self.profile = profile or DeviceProfile()
 
     def list_documents(
         self,
@@ -88,7 +96,7 @@ class CloudDataClient:
                 headers={
                     "Content-Type": "application/json",
                     "Accept": "application/json",
-                    "User-Agent": f"SM-S928B; ANDROID; com.sec.android.app.shealth={APP_VERSION}",
+                    "User-Agent": f"{self.profile.model_name}; {self.profile.client_tag}; com.sec.android.app.shealth={APP_VERSION}",
                     "authorization": cloud_authorization,
                     "x-sc-e2ee-state": _E2EE_HEADERS[e2ee_state],
                 },

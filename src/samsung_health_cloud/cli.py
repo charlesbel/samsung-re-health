@@ -105,6 +105,41 @@ def build_parser() -> argparse.ArgumentParser:
         default="json",
         help="Output format (default: json)",
     )
+    parser.add_argument(
+        "--device-model",
+        default=os.environ.get("SAMSUNG_HEALTH_DEVICE_MODEL", "SM-GENERIC"),
+        help="Device model name for SCSP registration (default: SM-GENERIC)",
+    )
+    parser.add_argument(
+        "--device-alias",
+        default=os.environ.get("SAMSUNG_HEALTH_DEVICE_ALIAS", "Samsung Health Cloud Client"),
+        help="Device alias for SCSP registration",
+    )
+    parser.add_argument(
+        "--country-code",
+        default=os.environ.get("SAMSUNG_HEALTH_COUNTRY_CODE", "USA"),
+        help="ISO 3166-1 alpha-3 country code (default: USA)",
+    )
+    parser.add_argument(
+        "--android-sdk",
+        default=os.environ.get("SAMSUNG_HEALTH_ANDROID_SDK", "34"),
+        help="Target Android SDK version (default: 34)",
+    )
+    parser.add_argument(
+        "--android-release",
+        default=os.environ.get("SAMSUNG_HEALTH_ANDROID_RELEASE", "14"),
+        help="Target Android release version (default: 14)",
+    )
+    parser.add_argument(
+        "--platform-version",
+        default=os.environ.get("SAMSUNG_HEALTH_PLATFORM_VERSION", "6.0.0"),
+        help="Target platform version (default: 6.0.0)",
+    )
+    parser.add_argument(
+        "--device-type",
+        default=os.environ.get("SAMSUNG_HEALTH_DEVICE_TYPE", "phone"),
+        help="Device type (default: phone)",
+    )
 
     subparsers = parser.add_subparsers(
         dest="command", required=True, parser_class=JsonArgumentParser
@@ -308,10 +343,33 @@ def _doctor(args: argparse.Namespace) -> dict[str, object]:
     }
 
 
+def _device_profile_from_args(args: argparse.Namespace) -> DeviceProfile:
+    profile_args: dict[str, str] = {}
+    if getattr(args, "device_model", None) is not None:
+        profile_args["model_name"] = str(args.device_model)
+    if getattr(args, "device_alias", None) is not None:
+        profile_args["alias"] = str(args.device_alias)
+    if getattr(args, "country_code", None) is not None:
+        profile_args["country_code"] = str(args.country_code)
+    if getattr(args, "android_sdk", None) is not None:
+        profile_args["android_sdk"] = str(args.android_sdk)
+    if getattr(args, "android_release", None) is not None:
+        profile_args["android_release"] = str(args.android_release)
+    if getattr(args, "platform_version", None) is not None:
+        profile_args["platform_version"] = str(args.platform_version)
+    if getattr(args, "device_type", None) is not None:
+        profile_args["device_type"] = str(args.device_type)
+
+    try:
+        return DeviceProfile(**profile_args)
+    except ValueError as exc:
+        raise UsageError(f"invalid device profile parameter: {exc}") from exc
+
+
 def _service(
     client: httpx.Client, args: argparse.Namespace, store: StateStore
 ) -> SamsungHealthService:
-    profile = DeviceProfile()
+    profile = _device_profile_from_args(args)
     return SamsungHealthService(
         store=store,
         master_state_path=args.master_state,
@@ -704,7 +762,8 @@ def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
         if args.command == "init":
             return _status(store), 0
 
-        data_client = CloudDataClient(client)
+        profile = _device_profile_from_args(args)
+        data_client = CloudDataClient(client, profile=profile)
         if args.command == "documents":
             payload = data_client.list_documents(
                 manifest_id=args.manifest_id,
@@ -934,6 +993,7 @@ def main(argv: list[str] | None = None) -> int:
 
     out_fmt = getattr(args, "output", "json")
     try:
+        _device_profile_from_args(args)
         data, exit_code = _dispatch(args)
         # Wrap in versioned JSON response envelope
         env = envelope(data)

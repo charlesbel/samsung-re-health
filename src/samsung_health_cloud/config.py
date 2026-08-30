@@ -96,11 +96,33 @@ class HealthConfig:
         tz_env = os.environ.get("SAMSUNG_HEALTH_TIMEZONE", "UTC")
         timeout_env = float(os.environ.get("SAMSUNG_HEALTH_TIMEOUT", "30.0"))
 
+        profile_args: dict[str, str] = {}
+        if "SAMSUNG_HEALTH_DEVICE_MODEL" in os.environ:
+            profile_args["model_name"] = os.environ["SAMSUNG_HEALTH_DEVICE_MODEL"]
+        if "SAMSUNG_HEALTH_DEVICE_ALIAS" in os.environ:
+            profile_args["alias"] = os.environ["SAMSUNG_HEALTH_DEVICE_ALIAS"]
+        if "SAMSUNG_HEALTH_COUNTRY_CODE" in os.environ:
+            profile_args["country_code"] = os.environ["SAMSUNG_HEALTH_COUNTRY_CODE"]
+        if "SAMSUNG_HEALTH_ANDROID_SDK" in os.environ:
+            profile_args["android_sdk"] = os.environ["SAMSUNG_HEALTH_ANDROID_SDK"]
+        if "SAMSUNG_HEALTH_ANDROID_RELEASE" in os.environ:
+            profile_args["android_release"] = os.environ["SAMSUNG_HEALTH_ANDROID_RELEASE"]
+        if "SAMSUNG_HEALTH_PLATFORM_VERSION" in os.environ:
+            profile_args["platform_version"] = os.environ["SAMSUNG_HEALTH_PLATFORM_VERSION"]
+        if "SAMSUNG_HEALTH_DEVICE_TYPE" in os.environ:
+            profile_args["device_type"] = os.environ["SAMSUNG_HEALTH_DEVICE_TYPE"]
+
+        try:
+            profile = DeviceProfile(**profile_args)
+        except ValueError as exc:
+            raise UsageError(f"invalid device profile environment configuration: {exc}") from exc
+
         return cls(
             master_state_path=master_env,
             state_path=state_env,
             cache_path=cache_env,
             catalog_path=catalog_env,
             timezone=tz_env,
+            device_profile=profile,
             timeout=timeout_env,
         )

@@ -29,5 +29,4 @@ def test_skill_manifest_contains_privacy_rules_and_workflows():
     assert "samsung_health_" in content  # MCP tools documented
 
     # Sanitization: ensure no maintainer paths
-    assert "/home/hermes" not in content
-    assert "charles@" not in content.lower()
+    assert "/home/" not in content

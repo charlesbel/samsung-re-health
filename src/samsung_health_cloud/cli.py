@@ -3,7 +3,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import shutil
+import subprocess  # nosec B404
 import sys
 import time
 from collections.abc import Iterable, Iterator
@@ -18,12 +20,15 @@ from zoneinfo import ZoneInfo
 import httpx
 import platformdirs
 
+from .account_auth import AccountBootstrap
+from .account_paths import resolve_redirect_path
+from .account_storage import consume_text
 from .analysis_engine import MAX_MS, HealthAnalysisEngine, period_bounds
 from .analytics import HEART_RATE, SLEEP, STEP_DAILY, WEIGHT, HealthAnalytics
 from .auth import HealthAuth, SamsungHealthCloudError
 from .cache import HealthCache
 from .catalog import CatalogStore, ManifestInfo
-from .credentials import resolve_master_state_path
+from .credentials import default_master_state_path, resolve_master_state_path
 from .data import CloudDataClient
 from .exceptions import (
     AuthenticationError,
@@ -50,7 +55,7 @@ except PackageNotFoundError:
     except PackageNotFoundError:
         __version__ = "0.7.0"
 
-DEFAULT_MASTER_STATE = resolve_master_state_path()
+DEFAULT_MASTER_STATE = default_master_state_path()
 DEFAULT_HEALTH_STATE = Path(platformdirs.user_state_dir("samsung-health-cloud")) / "state.json"
 DEFAULT_CATALOG = Path(platformdirs.user_config_dir("samsung-health-cloud")) / "manifests.json"
 DEFAULT_EXPORT_ROOT = Path.home() / "samsung-health-exports"
@@ -68,7 +73,7 @@ class JsonArgumentParser(argparse.ArgumentParser):
 def build_parser() -> argparse.ArgumentParser:
     parser = JsonArgumentParser(
         prog="samsung-re-health",
-        description="Unofficial reverse-engineered Samsung Health SDK, JSON CLI & MCP server — typed, versioned, strictly read-only client",
+        description="Unofficial reverse-engineered Samsung Health Cloud SDK, JSON CLI and MCP server for private-protocol sync and local analysis",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument(
@@ -161,6 +166,20 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("init", help="Initialiser ou renouveler la session Health/SCSP")
     subparsers.add_parser("status", help="Afficher la présence et les échéances des jetons")
     subparsers.add_parser("doctor", help="Vérifier les prérequis locaux sans afficher de secret")
+    subparsers.add_parser(
+        "install-handler", help="Installer le gestionnaire privé du callback Samsung Account"
+    )
+    auth_start = subparsers.add_parser(
+        "auth-start", help="Générer l’URL de connexion Samsung Account"
+    )
+    auth_start.add_argument("--country", default="us")
+    auth_start.add_argument("--locale", default="en-US")
+    subparsers.add_parser(
+        "auth-complete", help="Consommer le callback capturé et créer le master state"
+    )
+    subparsers.add_parser(
+        "account-status", help="Afficher le statut non secret du master Samsung Account"
+    )
 
     manifests = subparsers.add_parser(
         "manifests", help="Consulter le catalogue local des types Samsung Health"
@@ -332,19 +351,31 @@ def _status(store: StateStore) -> dict[str, object]:
     }
 
 
+def _master_state_for_consumption(path: Path) -> Path:
+    """Keep legacy reads without redirecting bootstrap writes away from samsung-account."""
+    if (
+        path == DEFAULT_MASTER_STATE
+        and not path.exists()
+        and "SAMSUNG_ACCOUNT_MASTER_STATE" not in os.environ
+    ):
+        return resolve_master_state_path()
+    return path
+
+
 def _doctor(args: argparse.Namespace) -> dict[str, object]:
+    master_state = _master_state_for_consumption(args.master_state)
     catalog = CatalogStore(args.catalog).load()
     usage = shutil.disk_usage(args.state.parent if args.state.parent.exists() else Path.home())
     return {
         "ok": all(
             (
-                args.master_state.exists(),
+                master_state.exists(),
                 args.state.exists(),
                 args.catalog.exists() or len(catalog) > 0,
                 args.cache.exists(),
             )
         ),
-        "master_state_present": args.master_state.exists(),
+        "master_state_present": master_state.exists(),
         "health_state_present": args.state.exists(),
         "health_state_mode": oct(args.state.stat().st_mode & 0o777)
         if args.state.exists()
@@ -417,7 +448,7 @@ def _service(
     profile = _device_profile_from_args(args)
     return SamsungHealthService(
         store=store,
-        master_state_path=args.master_state,
+        master_state_path=_master_state_for_consumption(args.master_state),
         health_auth=HealthAuth(client),
         scsp=ScspIdentity(client, profile=profile),
     )
@@ -720,7 +751,58 @@ def _partial_result_exit(error_count: int) -> int:
     return 0 if error_count == 0 else 6
 
 
+def install_account_handler(master_path: str | Path | None = None) -> dict[str, object]:
+    if not sys.platform.startswith("linux"):
+        raise UsageError("install-handler is currently supported on Linux only")
+    redirect_path = resolve_redirect_path(master_path)
+    applications = Path("~/.local/share/applications").expanduser()
+    applications.mkdir(parents=True, exist_ok=True)
+    desktop = applications / "samsung-health-account-callback.desktop"
+    exec_line = (
+        f"env SAMSUNG_ACCOUNT_REDIRECT_PATH={shlex.quote(str(redirect_path))} "
+        f"{shlex.quote(sys.executable)} -m samsung_health_cloud.capture_redirect %u"
+    )
+    desktop.write_text(
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        "Name=Samsung Account private callback\n"
+        f"Exec={exec_line}\n"
+        "Terminal=false\n"
+        "NoDisplay=true\n"
+        "MimeType=x-scheme-handler/ms-app;\n",
+        encoding="utf-8",
+    )
+    desktop.chmod(0o700)
+    xdg_mime = shutil.which("xdg-mime")
+    if not xdg_mime:
+        raise StateError("xdg-mime is required to install the callback handler")
+    subprocess.run(  # nosec B603
+        [xdg_mime, "default", desktop.name, "x-scheme-handler/ms-app"],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return {
+        "installed": True,
+        "handler": str(desktop),
+        "redirect_file": str(redirect_path),
+    }
+
+
 def _dispatch(args: argparse.Namespace) -> tuple[Any, int]:
+    if args.command == "install-handler":
+        return install_account_handler(args.master_state), 0
+    if args.command == "account-status":
+        with AccountBootstrap(master_path=args.master_state) as account:
+            return account.public_status(), 0
+    if args.command in ("auth-start", "auth-complete"):
+        with httpx.Client(timeout=30.0, follow_redirects=False) as client:
+            account = AccountBootstrap(master_path=args.master_state, client=client)
+            if args.command == "auth-start":
+                return {"login_url": account.start(args.country, args.locale)}, 0
+            redirect = consume_text(resolve_redirect_path(args.master_state))
+            return account.complete(redirect), 0
+
     store = StateStore(args.state)
     if args.command == "status":
         return _status(store), 0

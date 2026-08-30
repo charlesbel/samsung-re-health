@@ -6,10 +6,26 @@ ROOT = Path(__file__).parents[2]
 PUBLIC_DOCS = (ROOT / "README.md").read_text(encoding="utf-8") + (
     ROOT / "docs" / "cli.md"
 ).read_text(encoding="utf-8")
+SEMANTICS_DOCS = (ROOT / "docs" / "research-provenance.md").read_text(encoding="utf-8") + (
+    ROOT / ".skills" / "samsung-re-health" / "SKILL.md"
+).read_text(encoding="utf-8")
+ALL_PUBLIC_MARKDOWN = "\n".join(
+    path.read_text(encoding="utf-8")
+    for path in (
+        ROOT / "README.md",
+        ROOT / "SECURITY.md",
+        ROOT / "CONTRIBUTING.md",
+        *sorted((ROOT / "docs").rglob("*.md")),
+    )
+)
 
 
 def test_public_documentation_covers_every_cli_command() -> None:
     for command in (
+        "install-handler",
+        "auth-start",
+        "auth-complete",
+        "account-status",
         "init",
         "status",
         "doctor",
@@ -62,17 +78,29 @@ def test_public_documentation_covers_sensitive_selectors_and_boundaries() -> Non
         "time_window_only",
         "coverage_percent == 100",
     ):
-        assert boundary in PUBLIC_DOCS
+        assert boundary in SEMANTICS_DOCS
 
 
-def test_readme_explains_install_auth_skills_and_read_only_scope() -> None:
+def test_readme_explains_install_independent_auth_skills_and_current_scope() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "pip install samsung-re-health" in readme
     assert "import remains `samsung_health_cloud`" in readme
-    assert "samsung-re-find status" in readme
-    assert ".skills/samsung-re-health" in readme
-    assert "disabled" in readme or "absent unless" in readme
-    assert "cannot create, update, or delete Health records" in readme
+    assert "You do not need to install `samsung-re-find`" in readme
+    assert "samsung-re-health auth-start" in readme
+    assert "samsung-re-health auth-complete" in readme
+    assert "samsung-re-health account-status" in readme
+    assert "portable agent skills in `.skills/`" in readme
+    assert "current scope of this implementation" in readme
+    assert "not a claim that Samsung's private services have no other operations" in readme
+    assert "Pull requests are welcome" in readme
+    assert "samsung-re-find status" not in readme
+
+
+def test_public_documentation_never_requires_find_for_health_bootstrap() -> None:
+    lowered = ALL_PUBLIC_MARKDOWN.lower()
+    assert "master-state v1 created by `samsung-re-find` is required" not in lowered
+    assert "requires `samsung-re-find`" not in lowered
+    assert "must install `samsung-re-find`" not in lowered
 
 
 def test_authentication_docs_publish_exact_cross_platform_shared_paths() -> None:

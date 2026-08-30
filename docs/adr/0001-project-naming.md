@@ -38,7 +38,7 @@ The ecosystem adopts a universal convention for all present and future companion
 ### Rationale
 
 1. **Explicit Non-Affiliation & Scope**: The `samsung-re-` prefix immediately signals to users, package registries, and distributors that the tooling is an unofficial reverse-engineered project, avoiding trademark confusion with official SDKs.
-2. **Health Read-Only Boundary**: Samsung Health transport endpoints are strictly `GET`-only; explicit tagline and docs make the read-only boundary clear across all surfaces.
+2. **Current Health Document Boundary**: Version 0.7 implements Health document downloads with `GET` requests and no cloud-record mutations. This audited client boundary is documented without claiming that Samsung's private services expose no other operations.
 3. **Import & State Stability**: Internal Python import `samsung_health_cloud` and application data/state paths are intentionally maintained in this release to prevent breaking existing local SQLite mirrors and downstream script imports.
 4. **Full Compatibility Transition**: Legacy CLI commands (`samsung-health`, `samsung-health-cloud`) and MCP command (`samsung-health-mcp`) remain functional entry points, emitting helpful deprecation notices directing users to canonical commands.
 

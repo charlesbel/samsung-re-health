@@ -4,7 +4,7 @@
 
 ## Core Privacy Principles
 
-1. **Strict Read-Only Design**: `samsung-re-health` is strictly a read-only client for personal health data. It possesses no capabilities to create, update, overwrite, or delete health records on Samsung Cloud servers (HTTPS `GET` only).
+1. **Current Cloud-Record Scope**: The Health document client implemented in 0.7 uses HTTPS `GET` and does not create, update, or delete cloud health records. This describes the current package, not the complete capabilities of Samsung's private services. Future remote mutations must be separately designed, opt-in, and reviewed for data-loss and privacy risks.
 2. **Local-First Storage**: All cached data, sync states, and query results remain stored locally on your machine in user-controlled directories (`user_data_dir`, `user_state_dir`, `user_config_dir`). No telemetry, analytics, or remote logging services are embedded.
 3. **No Embedded Third-Party Transmission**: The package embeds no telemetry, analytics, remote logging service, intermediary proxy, or vendor cloud. Direct SDK/CLI synchronization transfers data only between Samsung Cloud and the local client. MCP users deliberately transmit selected tool results to their configured MCP host/model; that host's operator, retention, and privacy policies therefore form an additional trust boundary.
 4. **Secret Masking & Redaction**:

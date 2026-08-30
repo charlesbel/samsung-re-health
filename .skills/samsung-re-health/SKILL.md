@@ -1,18 +1,18 @@
 ---
 name: samsung-re-health
-description: Analyze Samsung Health data with strict read-only access.
+description: Query and analyze Samsung Health data safely.
 version: 0.7.0
 author: Charles Bel, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
   hermes:
-    tags: [samsung-health, health-data, read-only, analytics, mcp]
+    tags: [samsung-health, health-data, privacy, analytics, mcp]
 ---
 
 # Samsung Health
 
-Use the installed `samsung-re-health` CLI, Python SDK, or stdio MCP server to synchronize account data read-only, inspect a private local mirror, and produce descriptive analyses. This unofficial reverse-engineered project is not affiliated with Samsung and must not be used for diagnosis, treatment, or modification of health data.
+Use the installed `samsung-re-health` CLI, Python SDK, or stdio MCP server to synchronize account data into a private local mirror and produce descriptive analyses. The current document client reads cloud records without modifying them. This unofficial reverse-engineered project is not affiliated with Samsung and must not be used for diagnosis or treatment.
 
 ## When to Use
 
@@ -22,13 +22,13 @@ Use the installed `samsung-re-health` CLI, Python SDK, or stdio MCP server to sy
 - Integrate aggregate/local Health tools into an agent over MCP.
 - Retrieve bounded raw records only for authorized diagnostics when aggregate analysis is insufficient.
 
-Do not use it for medical claims, emergency assessment, prescriptive advice, write operations, continuous surveillance, or disclosure of another person’s records.
+Do not use it for medical claims, emergency assessment, prescriptive advice, unimplemented cloud mutations, continuous surveillance, or disclosure of another person’s records.
 
 ## Prerequisites
 
 1. Install with `terminal(command="python -m pip install 'samsung-re-health[mcp]'")`, preferably in an isolated environment or tool installer.
 2. Use `samsung-re-health` and `samsung-re-health-mcp`. Legacy `samsung-health*` entry points are compatibility aliases, not the public documentation target.
-3. Offline analysis requires a populated local cache. Online initialization/sync requires a neutral Samsung Account master-state v1 produced by `samsung-re-find`; master and Health-derived state remain separate.
+3. Offline analysis requires a populated local cache. For online use, create the neutral Samsung Account master state with this package's `auth-start`/`auth-complete` commands or reuse one created by another compatible `samsung-re-*` project. Master and Health-derived state remain separate.
 4. State, catalog, SQLite cache, exports, and sidecars must stay in private user-owned platform directories. Never inspect or print authentication files.
 5. Health records are sensitive personal data. Return the minimum necessary result and never expose tokens, cookies, signed URLs, internal IDs, exact coordinates, device hardware values, unknown free text, or raw envelopes by default.
 
@@ -60,7 +60,7 @@ Add the global `--timezone <IANA zone>` before the subcommand when civil dates m
 | Daily consolidated view | `summary [YYYY-MM-DD]` | Yes unless `--no-sync` |
 | Coverage and fields | `inventory [QUERY]`, `schema [QUERY]` | No |
 | Bounded local records | `data QUERY --limit N --no-sync` | No |
-| Explicit refresh | `sync [--days N|--all-history] [--all-types]` | Yes, GET-only |
+| Explicit refresh | `sync [--days N|--all-history] [--all-types]` | Cloud GET + local writes |
 
 Selectors:
 
@@ -111,9 +111,9 @@ Do not enable either globally “just in case.” The general CLI/SDK raw-data A
 - “Complete” means complete for what the current private API returned. Deprecated 404 manifests, E2EE content, files, signed URLs, and inaccessible collections must be reported as limitations.
 - Never infer pathology, danger, sleep quality, fitness, recovery, causality, or treatment from descriptive outputs.
 
-## Read-Only and Privacy Boundary
+## Current Cloud and Privacy Boundary
 
-- Health document transport uses fixed HTTPS GET endpoints only.
+- The Health document transport implemented in this release uses fixed HTTPS GET endpoints. This is not a claim that Samsung's private backend has no other operations.
 - POST operations, where present, are limited to authentication and SCSP identity/session establishment; they do not mutate user health records.
 - No Health-data PUT, PATCH, DELETE, upsert, or deregistration operation is exposed.
 - Master credentials are consumed transiently for authentication and never copied into Health state or SQLite.

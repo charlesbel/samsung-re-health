@@ -7,7 +7,7 @@ Thank you for your interest in contributing to `samsung-re-health`!
 ## Code of Conduct & Ground Rules
 
 1. **Strictly Synthetic Data Only**: Never commit real user account data, personal health measurements, real authentication tokens, or personal database dumps. All test fixtures and documentation examples must use synthetic data with obvious marker values.
-2. **Read-Only Data Principle**: Data access is strictly `GET`-only. No write operations to Samsung Health cloud data may be introduced.
+2. **Current Cloud Boundary**: The current Health document client uses `GET` requests and does not modify cloud health records. New protocol work is welcome, including other operations, but remote mutations must be explicit, opt-in, isolated from existing read/sync commands, backed by reproducible evidence, and reviewed for data-loss and privacy risks.
 3. **No Medical Claims**: This project provides neutral schema mapping, data extraction, and statistical aggregation. It does not provide medical diagnoses, clinical advice, or health interpretations.
 4. **Test-Driven Development (TDD)**: Every bug fix and feature must include unit or contract tests. Follow TDD: write a focused failing test, observe the expected failure, implement the minimal fix, and verify green across the full suite.
 

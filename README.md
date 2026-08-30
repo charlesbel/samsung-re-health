@@ -5,60 +5,56 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
-> **Disclaimer**: This project is unofficial, reverse-engineered, and not affiliated with, endorsed by, or supported by Samsung Electronics Co., Ltd. Samsung Health and Galaxy are trademarks of Samsung Electronics Co., Ltd.
+An unofficial Python SDK, JSON CLI and MCP server for Samsung Health Cloud.
 
-**`samsung-re-health`** is an open-source, strictly read-only Python SDK, typed JSON CLI, and Model Context Protocol (MCP) server for inspecting, synchronizing, querying, and analyzing personal Samsung Health data directly from Samsung Cloud without running an Android emulator or APK.
+`samsung-re-health` is a client for Samsung's private cloud synchronization protocol, not the official Android SDK. It downloads personal Samsung Health documents into a local SQLite mirror, then lets you query, export and analyze them without an Android emulator. It can also work entirely offline with an existing mirror.
 
-> **Strict Read-Only Boundary**: All health document synchronization strictly uses HTTPS `GET` requests against validated `*.samsungcloud.com` endpoints. The library possesses no capabilities to create, update, overwrite, or delete health records on Samsung Cloud.
+> This project is reverse-engineered and is not affiliated with or endorsed by Samsung. It uses private APIs that may change without notice. Use it only with accounts and data you are authorized to access. Its analytics are descriptive and are not medical advice.
 
----
+## What is included
 
-## Companion Ecosystem: Samsung Find & Master State
+- a Samsung Account setup flow and an online client for Health session initialization and cloud synchronization;
+- an offline client for querying and analyzing a local mirror;
+- a JSON CLI named `samsung-re-health`;
+- a stdio MCP server named `samsung-re-health-mcp`;
+- portable agent skills in `.skills/`.
 
-This project can analyze an existing local mirror without network credentials. Online initialization and synchronization use the neutral Master State v1 created by [**`samsung-re-find`**](https://github.com/charlesbel/samsung-re-find); Health never creates or modifies that master state.
+Version 0.7 reads Health documents from Samsung Cloud with GET requests. It does not upload, edit or delete cloud health records. That is the current scope of this implementation, not a claim that Samsung's private services have no other operations. Authentication and session setup use separate technical POST requests to fixed Samsung hosts, while synchronization writes the local mirror and checkpoints. The project is designed to grow as contributors document and implement more of the protocol safely.
 
-Authentication follows the neutral **Master State v1** contract:
-- Master credentials are discovered through the platform user configuration directory under `samsung-account/master.json` (for example `~/.config/samsung-account/master.json` on typical Linux systems).
-- If no neutral master file exists, the client can read the supported legacy Find state non-destructively and emits a migration warning.
-- Health-derived OAuth/SCSP tokens and the SQLite mirror are stored separately from the master state.
-- **Strictly Read-Only Health Transport**: health document fetching uses validated HTTPS `GET` requests. Authentication and SCSP session establishment use narrow fixed endpoints but cannot create, update, or delete Health records.
+## Samsung RE projects
 
-Persistent Health paths retain the compatibility application ID `samsung-health-cloud` so upgrading does not orphan existing mirrors. `platformdirs` chooses OS-specific roots for:
+The `samsung-re-*` repositories are independent tools built around reverse-engineered Samsung services:
 
-- state: `samsung-health-cloud/state.json` (`SAMSUNG_HEALTH_STATE`);
-- SQLite mirror: `samsung-health-cloud/health.sqlite3` (`SAMSUNG_HEALTH_CACHE`, with legacy `SAMSUNG_HEALTH_CACHE_DB` alias);
-- manifest catalog: `samsung-health-cloud/manifests.json` (`SAMSUNG_HEALTH_CATALOG`).
+| Project | Install | Purpose |
+| --- | --- | --- |
+| [`samsung-re-find`](https://github.com/charlesbel/samsung-re-find) | `pip install samsung-re-find` | Devices, location, connectivity, ring and tracking |
+| [`samsung-re-health`](https://github.com/charlesbel/samsung-re-health) | `pip install samsung-re-health` | Health Cloud synchronization, local queries and analytics |
 
-The master may be overridden with `SAMSUNG_ACCOUNT_MASTER_STATE`; timezone and timeout use `SAMSUNG_HEALTH_TIMEZONE` and `SAMSUNG_HEALTH_TIMEOUT`. CLI flags and explicit SDK arguments take precedence over environment variables.
+Each project includes its own account-setup procedure. When both are installed, they reuse the same neutral Samsung Account master state while keeping their service tokens and data separate.
 
----
+## Installation
 
-## Features
-
-- **Typed Python SDK**: High-level `SamsungHealthClient` (online sync + read) and `SamsungHealthLocalClient` (offline mirror analytics) via `import samsung_health_cloud`.
-- **Consolidated Analytics**: Built-in aggregations for daily activity (`step_daily_trend`), sleep stages, continuous heart rate, workouts, body weight, oxygen saturation, and stress.
-- **Provenance & Formula Tracking**: Analytical outputs publish formula/kind metadata and documented caveats where available; raw-field semantic provenance is tracked separately from structural coverage.
-- **Bundled Baseline Catalog**: Out-of-the-box support for standard Samsung Health data types even in pristine environments without an initial network sync.
-- **Model Context Protocol (MCP) Server**: Privacy-preserving stdio MCP server (`samsung-re-health-mcp`, server name `samsung-re-health`) with bounded record retrieval and secret redaction.
-- **Unified CLI (`samsung-re-health`)**: Structured versioned JSON output with standardized POSIX exit codes (`0`, `2`, `3`, `4`, `5`, `6`). Legacy aliases `samsung-health` and `samsung-health-cloud` are preserved for backward compatibility.
-
----
-
-## Quick Start
-
-### Installation
-
-Python 3.11 or newer is required. Install into a virtual environment or isolated application environment. CI tests Python 3.11–3.13 on Linux and Python 3.12 on macOS and Windows. Online first-login bootstrap is performed by the companion Find project; Health analysis itself remains portable once the neutral master state and/or local mirror are available:
+Python 3.11 or newer is required. A virtual environment is recommended.
 
 ```bash
-# SDK and JSON CLI
+# SDK and CLI
 python -m pip install samsung-re-health
 
-# SDK, CLI, and MCP stdio server
+# SDK, CLI and MCP server
 python -m pip install 'samsung-re-health[mcp]'
 ```
 
-The distribution name is `samsung-re-health`; the Python import remains `samsung_health_cloud`. Verify installation without credentials or network access:
+To install from source:
+
+```bash
+git clone https://github.com/charlesbel/samsung-re-health.git
+cd samsung-re-health
+python -m pip install -e '.[dev,mcp]'
+```
+
+The distribution is named `samsung-re-health`; the Python import remains `samsung_health_cloud`. The old `samsung-health`, `samsung-health-cloud` and `samsung-health-mcp` executables are kept as temporary compatibility aliases.
+
+Check the installation without credentials or network access:
 
 ```bash
 samsung-re-health --version
@@ -66,168 +62,179 @@ samsung-re-health --help
 samsung-re-health-mcp --help
 ```
 
-For development, clone the repository and install `python -m pip install -e '.[dev,mcp]'`. The repository and source distribution include the portable `.skills/samsung-re-health` agent skill; installing the wheel never modifies an agent profile automatically.
+## Account setup
 
-### Authentication for Online Sync
+Health includes its own Samsung Account setup. You do not need to install `samsung-re-find`.
 
-Online synchronization requires a Master State v1 from `samsung-re-find`:
+On a Linux desktop:
 
 ```bash
-python -m pip install samsung-re-find
-samsung-re-find status
-# If no master exists, follow samsung-re-find auth-start/auth-complete.
+# Register the private ms-app:// callback handler
+samsung-re-health install-handler
+
+# Generate a Samsung login URL, then open the URL in a browser
+samsung-re-health auth-start --country us --locale en-US
+
+# After the browser returns to the local handler
+samsung-re-health auth-complete
+samsung-re-health account-status
+
+# Create or renew the Health-specific session
 samsung-re-health init
 samsung-re-health status
 ```
 
-Use Samsung’s browser page for passwords and second factors. Never paste credentials, callback URIs, tokens, or state files into commands, chat, or issues. Local-only analysis of an existing mirror does not require `init`.
+The browser login happens on Samsung's own page. This project never asks for or receives your password or second factor. `install-handler` currently uses `xdg-mime` and is Linux-specific. The package does not yet provide automatic callback helpers for macOS or Windows; those platforms require an independently configured private handler for the exact `ms-app://` callback.
 
-### CLI Quick Start
+The account flow stores a neutral `samsung-account/master.json` in the platform's user configuration directory. It is JSON protected by user-only filesystem permissions, not encrypted at rest. `samsung-re-find` uses the same format, so an existing master created by either project is reused automatically. The two packages do not import or require each other.
+
+The online chain is: browser login → master authorization → Health OAuth tokens → SCSP registration and cloud token → document downloads → local SQLite mirror. `account-status` checks only the shared master; `status` checks the Health-specific session.
+
+If you already have a local SQLite mirror and only want offline queries, you can skip account setup and `init`.
+
+## CLI examples
+
+Commands return versioned JSON envelopes by default.
 
 ```bash
-# Verify environment, local catalog, SQLite mirror, and disk space
+# Check local files, catalog and free space
 samsung-re-health doctor
 
-# Check token presence and expiration timestamps (never logs secrets)
-samsung-re-health status
-
-# Synchronize recent health data (defaults to last 14 days)
+# Download the most recent 14 days into the local mirror
 samsung-re-health sync --days 14
 
-# View multi-metric daily summary
+# Query common daily views
 samsung-re-health summary 2026-08-30
-
-# Inspect specific daily metrics
-samsung-re-health steps
-samsung-re-health sleep
-samsung-re-health heart-rate
+samsung-re-health steps 2026-08-30
+samsung-re-health sleep 2026-08-30
+samsung-re-health heart-rate 2026-08-30
 samsung-re-health weight
 
-# Advanced multi-period analytics
+# Explore the available data and observed fields
+samsung-re-health types
+samsung-re-health inventory
+samsung-re-health schema
+
+# Query or export one type
+samsung-re-health data step_daily_trend --limit 100 --no-sync
+samsung-re-health export com.samsung.shealth.step_daily_trend
+
+# Run higher-level analyses
 samsung-re-health analyze activity --period week --compare previous
 samsung-re-health analyze sleep --latest
-samsung-re-health analyze exercise --period month
 ```
 
-> **Compatibility Note**: Legacy commands `samsung-health` and `samsung-health-cloud` continue to function as aliases with a deprecation notice emitted to stderr.
+Synchronization reads cloud documents but writes the local SQLite mirror and local session/checkpoint files. Use `--no-sync` on supported query commands when you want a strictly offline read.
 
----
+See [docs/cli.md](docs/cli.md) for every command, selector, output format and exit code.
 
-## Python SDK Reference
-
-The Python package import name is `samsung_health_cloud`:
+## Python SDK
 
 ```python
-from samsung_health_cloud import SamsungHealthClient, SamsungHealthLocalClient, HealthConfig
+from samsung_health_cloud import HealthConfig, SamsungHealthClient, SamsungHealthLocalClient
 
 config = HealthConfig(timezone="UTC")
 
-# 1. Offline Local Client (queries local SQLite mirror without network)
+# Offline queries and analytics
 with SamsungHealthLocalClient(config=config) as local:
-    summary = local.summary(day="2026-08-30")
-    sleep_analysis = local.analyze("sleep", latest=True)
-    manifests = local.types()
+    print(local.summary(day="2026-08-30"))
+    print(local.analyze("sleep", latest=True))
 
-# 2. Online Client (auto-refreshes tokens and syncs cloud documents)
+# Online synchronization followed by the same local views
 with SamsungHealthClient(config=config) as client:
-    sync_result = client.sync(days=7)
-    status_info = client.status()
+    result = client.sync(days=7)
+    print(result)
 ```
 
-For complete SDK guides and API contracts, see [`docs/sdk.md`](docs/sdk.md).
+See [docs/sdk.md](docs/sdk.md) for the public clients, models and exceptions.
 
----
+## MCP server
 
-## Model Context Protocol (MCP) Server
-
-The package includes a stdio-based MCP server providing bounded, privacy-preserving tools for AI assistants:
+Start the six-tool default server with:
 
 ```bash
 samsung-re-health-mcp
 ```
 
-*(Legacy alias `samsung-health-mcp` is also supported)*
-
-### Registered Tools
-
-The first six tools are available by default and operate on local metadata or aggregate analyses. Raw records and network synchronization are absent unless the MCP host explicitly opts in at startup.
-
-| Tool Name | Availability | Scope | Description |
-|---|---|---|---|
-| `samsung_health_status` | Default | Metadata | Safe token-expiration status without secrets |
-| `samsung_health_types` | Default | Metadata | List supported health manifests and schema revisions |
-| `samsung_health_inventory` | Default | Local cache | Record counts and temporal bounds per manifest |
-| `samsung_health_analyze` | Default | Analytics | Structured analytics with formulas and provenance |
-| `samsung_health_summary` | Default | Analytics | Multi-metric daily summary |
-| `samsung_health_cache_status` | Default | Mirror status | SQLite synchronization metadata and error counts |
-| `samsung_health_read_records` | `--allow-records` | Sensitive raw data | Values above the 50-record maximum are rejected; output is fail-closed redacted |
-| `samsung_health_sync` | `--allow-sync` | Network GET + local writes | Synchronize Health documents into the local mirror; MCP annotations mark it non-read-only and non-idempotent because it updates SQLite/checkpoints |
+The default tools expose status, type metadata, inventory, aggregate analyses, daily summaries and cache status. Two more sensitive tools require explicit startup flags:
 
 ```bash
-# Default six-tool server
-samsung-re-health-mcp
-
-# Deliberate opt-ins; do not enable globally without need
+# Allow bounded access to individual health records
 samsung-re-health-mcp --allow-records
+
+# Allow network synchronization and local mirror updates
 samsung-re-health-mcp --allow-sync
 ```
 
-General CLI/SDK raw-data methods are not automatically redacted like the gated MCP record tool. For complete schemas and configuration examples, see [`docs/mcp.md`](docs/mcp.md).
+Raw-record access is gated because health records are personal and may be sent to the configured MCP host or model. Synchronization is gated because it contacts Samsung and changes local files. These safeguards describe the MCP interface, not limitations of Samsung's servers.
 
----
+See [docs/mcp.md](docs/mcp.md) for tool names, schemas, limits and host configuration.
 
-## CLI Reference & Exit Codes
+## Local files and privacy
 
-The `samsung-re-health` CLI outputs versioned JSON envelopes (`{"ok": true, "schema_version": "1.0", "data": ...}`) by default.
+The default locations are selected with `platformdirs`:
 
-### Standardized Exit Codes
-- `0`: Complete success
-- `2`: Usage / argument validation error
-- `3`: Authentication required or token revoked
-- `4`: Remote network or protocol error
-- `5`: Local filesystem state / permissions error (`0600` required)
-- `6`: Partial result (e.g. some manifests failed sync, reported in payload)
+- `samsung-account/master.json`: reusable Samsung Account authorization;
+- `samsung-health-cloud/state.json`: Health-specific tokens and registration state;
+- `samsung-health-cloud/health.sqlite3`: local document mirror;
+- `samsung-health-cloud/manifests.json`: observed and bundled type catalog.
 
-For full CLI options and schema definitions, see [`docs/cli.md`](docs/cli.md).
+The master state, Health state and mirror are separate. State files use private permissions where the platform supports POSIX modes and reject unsafe symlinks, but they are not encrypted at rest. Anyone able to bypass the user account's filesystem permissions may be able to read health records or reuse a session. The package has no telemetry or intermediary proxy.
 
----
+MCP output is sent to whichever host or model you configure. Its retention and privacy policy are therefore part of your trust boundary. Direct CLI and SDK record reads do not apply every MCP-specific redaction rule.
 
-## Documentation Index
+Configuration paths and environment variables are documented in [docs/authentication.md](docs/authentication.md) and [docs/cli.md](docs/cli.md).
 
-- [Architecture & ADR 0001](docs/adr/0001-project-naming.md): Ecosystem naming taxonomy and `samsung-re-{domain}` conventions.
-- [Authentication Architecture](docs/authentication.md): Samsung OAuth token exchange, SCSP registration, and Master State v1.
-- [Privacy Policy & Safety](docs/privacy.md): Strict read-only boundaries, secret redaction, and local isolation.
-- [Research Provenance](docs/research-provenance.md): Methodologies, evidence tiers, and verification limits.
-- [Migration Guide](docs/migration-0.7.md): Migrating from legacy setups to `samsung-re-health` 0.7.0.
-- [Release Process](docs/release.md): Verification gates, Trusted Publishing, tag sequence, and post-release checks.
-- [Python SDK Guide](docs/sdk.md): Facades, data models, and error hierarchy.
-- [CLI Reference](docs/cli.md): Commands, arguments, envelopes, and exit codes.
-- [MCP Reference](docs/mcp.md): Stdio server tools, bounding rules, and configuration.
+## How to interpret the data
 
----
+Samsung Health schemas are private and evolve over time. The project separates fields whose meaning is understood from fields that are only observed structurally. Some aggregates are reported by Samsung; others are calculated locally and are labeled as such.
 
-## Interpretation & Known Limitations
+Keep these limits in mind:
 
-- `coverage_percent == 100` means every observed field is surfaced; it does not mean Samsung documents every field or that every cloud collection is accessible.
-- Fields marked `raw_observed` have no approved semantic meaning or unit. The client reports neutral statistics instead of inferring meaning from names.
-- Sleep `AWAKE` intervals are not counts of conscious awakenings, and source records are not automatically distinct nights.
-- `reported_efficiency_percent` is account data; `derived_stage_coverage_percent` is a local interval-union calculation. They are not interchangeable.
-- Heart rate, oxygen saturation, and snoring joined by `time_window_only` are temporally concomitant, not proven parent records or causes.
-- Deprecated 404 manifests, E2EE documents, files, signed URLs, and schema changes can limit readable coverage.
-- The private API may ignore requested time bounds and return a complete collection; avoid unnecessary frequent all-type/full-history synchronization.
-- Outputs are descriptive and must not be treated as diagnosis, medical advice, pathology, recovery, fitness, or causality.
+- an observed field name does not prove its unit or medical meaning;
+- records that overlap in time are not necessarily causally related;
+- end-to-end encrypted documents and unsupported collections may be unavailable;
+- a requested time range may not be honored by every private endpoint;
+- summaries and trends are descriptive, not diagnostic.
 
----
+Detailed formulas, provenance and field caveats are in [docs/research-provenance.md](docs/research-provenance.md) and the `schema` command.
 
-## Privacy & Ethical Research
+The bundled catalog helps resolve known manifests locally; it does not guarantee that every type is available for every account, region or app version. Dedicated analyses exist for activity, sleep, exercise and common daily views. Other manifests use generic inventory, schema and statistical surfaces until their semantics are better understood.
 
-This project is built strictly for personal data sovereignty, transparency, and research.
-- **No Private Data**: This repository contains strictly synthetic fixtures, non-personal baseline catalogs, and neutral statistical models.
-- **No Live Network Calls in Tests**: All unit, contract, and integration tests run entirely against local mock transports or synthetic SQLite databases.
-- **No Write Operations**: Health data transport endpoints are strictly verified to accept only `GET` operations.
+## Current limitations
 
----
+- **Samsung service:** account, region, app version and remote collection availability can change what is returned; private endpoints may change without notice.
+- **Current implementation:** cloud health records are downloaded but not created, edited or deleted; callback installation is automated only on Linux; some document forms and E2E content are not decoded.
+- **Reverse engineering:** many fields have observed structure but no verified meaning or unit, and a successful time-bounded request does not prove the server honored that range.
+- **Local analysis:** a populated mirror can be analyzed offline, but copying master state or health data between machines is sensitive and is not an ordinary portability feature.
+
+These limits describe observed service behavior and work still to be implemented; they are not a complete statement of Samsung's backend capabilities.
+
+## Contributing
+
+Pull requests are welcome for:
+
+- newly documented manifests and fields;
+- better decoders, joins and provenance;
+- additional export and analysis methods;
+- account and callback support on more platforms;
+- other Samsung Health operations that have a clear contract and safety model.
+
+The current cloud-record implementation is GET-only. A proposal that writes to Samsung Cloud must be explicit, opt-in, isolated from ordinary reads, backed by reproducible protocol evidence, and reviewed for data-loss and privacy risks. It must never turn an existing read or sync command into a remote mutation.
+
+Tests must stay offline and use synthetic health data. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+## Documentation
+
+- [Authentication and local state](docs/authentication.md)
+- [CLI reference](docs/cli.md)
+- [Python SDK](docs/sdk.md)
+- [MCP server](docs/mcp.md)
+- [Privacy](docs/privacy.md)
+- [Research provenance](docs/research-provenance.md)
+- [Migration to 0.7](docs/migration-0.7.md)
+- [Release process](docs/release.md)
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+MIT. See [LICENSE](LICENSE).

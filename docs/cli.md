@@ -1,6 +1,6 @@
 # Samsung Health CLI Reference
 
-> **Disclaimer:** `samsung-re-health` is unofficial and reverse-engineered. Health document transport is strictly read-only; the private API can change without notice.
+> **Disclaimer:** `samsung-re-health` is unofficial and reverse-engineered. Its current Health document client downloads records without modifying them; authentication uses separate technical POST requests, local sync writes the mirror, and private APIs can change without notice.
 
 ## Installation and Executable
 
@@ -40,18 +40,26 @@ Explicit SDK/config values take precedence over environment values, which take p
 ## Setup and Diagnostics
 
 ```bash
+samsung-re-health install-handler
+samsung-re-health auth-start --country us --locale en-US
+samsung-re-health auth-complete
+samsung-re-health account-status
 samsung-re-health init
 samsung-re-health status
 samsung-re-health doctor
 samsung-re-health cache-status
 ```
 
+- `install-handler` registers the Linux `ms-app://` callback catcher implemented by `samsung_health_cloud.capture_redirect`.
+- `auth-start` emits a Samsung Account browser login URL; `--country` defaults to `us` and `--locale` to `en-US`.
+- `auth-complete` securely consumes `samsung-account/redirect.uri` and creates the neutral shared `master-state-v1`.
+- `account-status` reports only non-secret master-state presence indicators.
 - `init` establishes or renews Health OAuth/SCSP derived state from the neutral master state.
 - `status` reports presence and expiry metadata, never token values.
 - `doctor` checks local paths, permissions, catalog, SQLite, and disk readiness without printing secrets.
 - `cache-status` reports local mirror and synchronization metadata.
 
-`doctor`, `cache-status`, and offline local-client operations do not require a network login. Online operations require a master state created by `samsung-re-find`.
+`doctor`, `cache-status`, `account-status`, and offline local-client operations do not require a network login. Online operations require a master state created by either the Health bootstrap commands above or the equivalent `samsung-re-find` flow.
 
 ## Catalog Discovery
 
@@ -116,7 +124,7 @@ The response contains `manifest_id`, `count`, `offset`, `next_offset`, and `reco
 samsung-re-health sync [--days N | --all-history] [--all-types] [--force]
 ```
 
-Synchronization writes only to the private local SQLite mirror. Cloud Health documents are fetched through validated HTTPS GET requests; the client exposes no Health-record create/update/delete operation. `--force`, `--all-types`, and `--all-history` can be expensive because the private API may ignore time bounds.
+Synchronization writes to the private local SQLite mirror and checkpoint state. Cloud Health documents are fetched through validated HTTPS GET requests; the current client exposes no Health-record create/update/delete operation. This describes the implemented command surface, not every operation available on Samsung's private services. `--force`, `--all-types`, and `--all-history` can be expensive because the private API may ignore time bounds.
 
 ## Direct Cloud Compatibility Interfaces
 

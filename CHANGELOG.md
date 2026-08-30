@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.0] - 2026-08-30
 
 ### Added
-- **Shared Master State v1 Consumer**: Strict read-only consumption of the neutral `samsung-account/master.json` contract with symlink/permission checks and non-destructive legacy fallback.
+- **Shared Master State v1**: Validated use of the neutral `samsung-account/master.json` contract with symlink/permission checks, non-destructive legacy fallback, and an optional first-login bootstrap included in this package.
 - **Typed SDK Facade**: Public `SamsungHealthClient` and offline `SamsungHealthLocalClient` facades exported from `samsung_health_cloud`.
 - **Domain Models & Exceptions Hierarchy**: Typed dataclasses (`HealthConfig`, `DeviceProfile`, `MasterCredentials`, etc.) and structured exception hierarchy (`SamsungHealthError`, `AuthenticationError`, `NetworkError`, etc.).
 - **Bundled Baseline Manifest Catalog**: Embedded `resources/manifests.json` providing immediate offline bootstrap and manifest resolution for common health types under empty environments without prior local file configuration.

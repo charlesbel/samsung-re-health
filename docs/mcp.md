@@ -1,6 +1,6 @@
 # Model Context Protocol (MCP) Server
 
-> **Disclaimer**: `samsung-re-health` is an unofficial, reverse-engineered project and is not affiliated with Samsung Electronics Co., Ltd. Health data access is strictly read-only.
+> **Disclaimer**: `samsung-re-health` is an unofficial, reverse-engineered project and is not affiliated with Samsung Electronics Co., Ltd. Its current Health document client reads cloud records with GET requests and does not modify them.
 
 `samsung-re-health` provides a Model Context Protocol (MCP) server over `stdio` (`samsung-re-health-mcp`) allowing AI assistants to query health data safely and with strict privacy boundaries.
 
@@ -43,7 +43,7 @@ Although synchronization uses read-only `GET` requests against Samsung Health, i
 
 ## Privacy & Safety Guarantees
 
-- **Strict Read-Only**: Cloud communications strictly perform HTTPS `GET` requests.
+- **Current record boundary**: Health document synchronization uses HTTPS `GET`; authentication uses separate fixed technical endpoints, and sync writes the local mirror.
 - **No Medical Claims**: Outputs never contain diagnostic claims or prescriptive clinical advice.
 - **Redaction**: Raw tokens, authorization headers, and signed URLs are masked before transmission.
 - **Strict Bounding**: Pagination parameters are strictly validated; out-of-range values are rejected rather than silently clamped.

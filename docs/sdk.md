@@ -1,6 +1,6 @@
 # Samsung Health Python SDK
 
-> **Disclaimer:** `samsung-re-health` is unofficial and reverse-engineered. Health document transport is strictly read-only and the private API can change without notice.
+> **Disclaimer:** `samsung-re-health` is unofficial and reverse-engineered. The current client reads Health documents without modifying cloud records, and the private API can change without notice.
 
 The distribution is `samsung-re-health`; import it as `samsung_health_cloud`. Python 3.11 or newer is required.
 
@@ -11,7 +11,7 @@ python -m pip install samsung-re-health
 ## Clients
 
 - `SamsungHealthLocalClient`: offline-only facade over the local catalog and SQLite mirror. It does not initialize cloud authentication or network transport.
-- `SamsungHealthClient`: adds Health OAuth/SCSP status and read-only cloud synchronization, then exposes the same local analytics.
+- `SamsungHealthClient`: adds Health OAuth/SCSP status and GET-based cloud synchronization, then exposes the same local analytics. Synchronization writes the local mirror and checkpoints.
 
 Both are context managers and accept a portable `HealthConfig`.
 
@@ -36,7 +36,7 @@ This reads only the local mirror. An empty new installation can resolve bundled 
 
 ## Online Example
 
-A neutral Samsung Account master-state v1 created by `samsung-re-find` is required:
+Create the neutral Samsung Account master-state v1 with `samsung-re-health auth-start` / `auth-complete`, or reuse a compatible master previously created by another `samsung-re-*` project:
 
 ```python
 from samsung_health_cloud import HealthConfig, SamsungHealthClient

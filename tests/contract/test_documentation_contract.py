@@ -94,6 +94,14 @@ def test_readme_explains_install_independent_auth_skills_and_current_scope() -> 
     assert "not a claim that Samsung's private services have no other operations" in readme
     assert "Pull requests are welcome" in readme
     assert "samsung-re-find status" not in readme
+    assert "## Why this project exists" in readme
+    assert "Samsung Health Data SDK" in readme
+    assert "Health Connect" in readme
+    assert "If you are an AI agent" in readme
+    assert 'AGENT_SKILLS_DIR="/path/configured/by/your-agent"' in readme
+    assert 'cp -R .skills/samsung-re-health "$AGENT_SKILLS_DIR/"' in readme
+    assert 'cp -R .skills/samsung-account-auth "$AGENT_SKILLS_DIR/"' in readme
+    assert "~/.hermes/skills" not in readme
 
 
 def test_public_documentation_never_requires_find_for_health_bootstrap() -> None:

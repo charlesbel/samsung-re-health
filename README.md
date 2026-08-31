@@ -11,6 +11,24 @@ An unofficial Python SDK, JSON CLI and MCP server for Samsung Health Cloud.
 
 > This project is reverse-engineered and is not affiliated with or endorsed by Samsung. It uses private APIs that may change without notice. Use it only with accounts and data you are authorized to access. Its analytics are descriptive and are not medical advice.
 
+## Why this project exists
+
+Most supported or community access paths solve a different problem:
+
+- The official Samsung Health Data SDK gives an Android application permission-controlled access to selected data in the Samsung Health app's on-device data store; it requires a compatible Android/Samsung Health environment and does not support emulators.[1]
+- Android Health Connect is a standardized, permission-controlled Android data store with record synchronization and CRUD APIs; it is not a Samsung Health Cloud client.[2]
+- Mobile integrations such as Terra and Health Sync can move or normalize Samsung Health data through Android, but their documented Samsung path reads from the phone rather than directly from a Samsung Health web API.[6][7]
+- Tools such as [FromSamToGarm](https://github.com/PhilippImhof/FromSamToGarm), [samsung-health-to-garmin](https://github.com/joaoruimatos/samsung-health-to-garmin) and [samsung-health-sdk](https://github.com/Devasy/samsung-health-sdk) parse or convert a Samsung Health export that the user first downloads from the mobile app.[3][4][5]
+
+`samsung-re-health` is designed for authorized **headless and repeatable cloud access**: perform one interactive Samsung Account login, synchronize documents directly from Samsung's private cloud protocol into a local SQLite mirror, then use the same data through a typed Python SDK, versioned JSON CLI or gated stdio MCP server. This avoids repeated manual app exports and supports incremental refresh plus offline analysis. It does not replace the official SDK for supported Android applications, Health Connect for cross-app Android interoperability, or export converters for Garmin/FIT migration.
+
+What this project adds for that use case:
+
+- direct, repeatable cloud synchronization instead of asking the user to download a new app export for every refresh;
+- an incremental SQLite mirror that remains queryable offline and can be refreshed selectively or across known manifests;
+- one interface model across the Python SDK, JSON CLI and MCP tools, including bounded raw-record access for agents;
+- explicit provenance and direct-versus-derived labels for analyses over private, evolving schemas.
+
 ## What is included
 
 - a Samsung Account setup flow and an online client for Health session initialization and cloud synchronization;
@@ -19,7 +37,23 @@ An unofficial Python SDK, JSON CLI and MCP server for Samsung Health Cloud.
 - a stdio MCP server named `samsung-re-health-mcp`;
 - portable agent skills in `.skills/`.
 
-Version 0.7 reads Health documents from Samsung Cloud with GET requests. It does not upload, edit or delete cloud health records. That is the current scope of this implementation, not a claim that Samsung's private services have no other operations. Authentication and session setup use separate technical POST requests to fixed Samsung hosts, while synchronization writes the local mirror and checkpoints. The project is designed to grow as contributors document and implement more of the protocol safely.
+<details>
+<summary><strong>If you are an AI agent, install the bundled skills first</strong></summary>
+
+First determine the local skills directory configured by your agent runtime; do not assume a framework-specific path. Set `AGENT_SKILLS_DIR` to that existing or intended directory, then copy the repository's two portable skills before operating the CLI or MCP server:
+
+```bash
+AGENT_SKILLS_DIR="/path/configured/by/your-agent"
+mkdir -p "$AGENT_SKILLS_DIR"
+cp -R .skills/samsung-re-health "$AGENT_SKILLS_DIR/"
+cp -R .skills/samsung-account-auth "$AGENT_SKILLS_DIR/"
+```
+
+Consult your agent runtime's documentation or configuration if its skills directory is unknown. The Health skill defines privacy, synchronization and semantic-interpretation rules; the account skill defines interactive login and repair. Installing a skill does not install the Python package itself.
+
+</details>
+
+Version 0.7 reads Health documents from Samsung Cloud with GET requests. It does not upload, edit or delete cloud health records. That is the current scope of this implementation, not a claim that Samsung's private services have no other operations. Authentication and session setup use separate technical POST requests: SCSP endpoints are fixed, while the Samsung account authority is supplied by trusted state and validated against a closed allowlist. Synchronization writes the local mirror and checkpoints.
 
 ## Samsung RE projects
 
@@ -203,7 +237,7 @@ Configuration paths and environment variables are documented in [docs/authentica
 
 ## How to interpret the data
 
-Samsung Health schemas are private and evolve over time. The project separates fields whose meaning is understood from fields that are only observed structurally. Some aggregates are reported by Samsung; others are calculated locally and are labeled as such.
+Samsung Health schemas are private and evolve over time. The project separates fields whose meaning is understood from fields that are only observed structurally. Some values are stored directly in Samsung documents and passed through without local recalculation; others are calculated locally and labeled as derived. A stored value does not imply that this project knows Samsung's generating formula.
 
 Keep these limits in mind:
 
@@ -213,7 +247,7 @@ Keep these limits in mind:
 - a requested time range may not be honored by every private endpoint;
 - summaries and trends are descriptive, not diagnostic.
 
-Detailed formulas, provenance and field caveats are in [docs/research-provenance.md](docs/research-provenance.md) and the `schema` command.
+The evidence hierarchy is summarized in [docs/research-provenance.md](docs/research-provenance.md); formulas, direct-versus-derived distinctions and validation denominators are in [docs/semantic-methodology.md](docs/semantic-methodology.md) and the `schema` command.
 
 The bundled catalog helps resolve known manifests locally; it does not guarantee that every type is available for every account, region or app version. Dedicated analyses exist for activity, sleep, exercise and common daily views. Other manifests use generic inventory, schema and statistical surfaces until their semantics are better understood.
 
@@ -248,9 +282,20 @@ Tests must stay offline and use synthetic health data. Read [CONTRIBUTING.md](CO
 - [MCP server](docs/mcp.md)
 - [Privacy](docs/privacy.md)
 - [Research provenance](docs/research-provenance.md)
+- [Semantic methodology and formulas](docs/semantic-methodology.md)
 - [Migration to 0.7](docs/migration-0.7.md)
 - [Release process](docs/release.md)
 
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Sources
+
+[1] https://developer.samsung.com/health/data/overview.html
+[2] https://developer.android.com/health-and-fitness/health-connect
+[3] https://github.com/PhilippImhof/FromSamToGarm
+[4] https://github.com/joaoruimatos/samsung-health-to-garmin
+[5] https://github.com/Devasy/samsung-health-sdk
+[6] https://docs.tryterra.co/unified-api/mobile-only-sources
+[7] https://healthsync.app/about

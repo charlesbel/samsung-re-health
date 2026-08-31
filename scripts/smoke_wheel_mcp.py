@@ -62,7 +62,7 @@ def smoke_mcp_server(executable: list[str], env: dict[str, str], *, opt_ins: boo
         assert init_resp.get("id") == 1, f"invalid id: {init_resp}"
         result = init_resp.get("result", {})
         assert result.get("serverInfo", {}).get("name") == "samsung-re-health"
-        assert result.get("serverInfo", {}).get("version") == "0.7.0"
+        assert result.get("serverInfo", {}).get("version") == "0.7.1"
         assert "capabilities" in result
 
         # 2. Notification without response
@@ -266,7 +266,7 @@ def main() -> int:
             env=smoke_env,
             check=True,
         )
-        assert "samsung-re-health 0.7.0" in ver_res.stdout
+        assert "samsung-re-health 0.7.1" in ver_res.stdout
         assert "deprecated" not in ver_res.stderr
 
         cmd_res = subprocess.run(

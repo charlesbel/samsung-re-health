@@ -36,4 +36,4 @@
 
 ### 6. Bundled Runtime Catalog
 - In 0.6.x, commands failed if no local manifest catalog had been created.
-- In 0.7.0, a bundled baseline catalog covers all standard data types (`sleep`, `heart_rate`, `oxygen_saturation`, `exercise`, `steps`, `weight`, etc.) out of the box.
+- In 0.7.0, a bundled baseline catalog provides known manifest identifiers for common types (`sleep`, `heart_rate`, `oxygen_saturation`, `exercise`, `steps`, `weight`, etc.). It enables local type resolution but does not guarantee account/region availability, complete decoding or verified semantics for every field.

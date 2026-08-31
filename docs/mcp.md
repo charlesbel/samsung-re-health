@@ -2,7 +2,7 @@
 
 > **Disclaimer**: `samsung-re-health` is an unofficial, reverse-engineered project and is not affiliated with Samsung Electronics Co., Ltd. Its current Health document client reads cloud records with GET requests and does not modify them.
 
-`samsung-re-health` provides a Model Context Protocol (MCP) server over `stdio` (`samsung-re-health-mcp`) allowing AI assistants to query health data safely and with strict privacy boundaries.
+`samsung-re-health` provides a Model Context Protocol (MCP) server over `stdio` (`samsung-re-health-mcp`) with narrow tools and explicit gates. Every enabled result can contain personal health information and is sent to the configured MCP client.
 
 ## Installation
 
@@ -27,7 +27,7 @@ pip install 'samsung-re-health[mcp]'
 
 ## Default Tools (Read-Only & Aggregates)
 
-- `samsung_health_status`: Check authentication state and token validity.
+- `samsung_health_status`: Inspect locally stored authentication presence and expiry metadata; this does not prove that Samsung has not revoked the token.
 - `samsung_health_types`: List supported health data types and schemas.
 - `samsung_health_inventory`: View record counts and available time ranges.
 - `samsung_health_analyze`: Run structured analytics (sleep, activity, heart rate, weight) with formula provenance.
@@ -41,9 +41,9 @@ pip install 'samsung-re-health[mcp]'
 
 Although synchronization uses read-only `GET` requests against Samsung Health, it writes the local SQLite mirror and synchronization checkpoints and may refresh derived authentication state. Its MCP effect annotations are therefore `readOnlyHint=false`, `idempotentHint=false`, `destructiveHint=false`, and `openWorldHint=true`. The first two describe the complete local operation, not just the remote HTTP method; `destructiveHint=false` preserves the read-only Health-record boundary.
 
-## Privacy & Safety Guarantees
+## Privacy and Effect Boundaries
 
-- **Current record boundary**: Health document synchronization uses HTTPS `GET`; authentication uses separate fixed technical endpoints, and sync writes the local mirror.
-- **No Medical Claims**: Outputs never contain diagnostic claims or prescriptive clinical advice.
-- **Redaction**: Raw tokens, authorization headers, and signed URLs are masked before transmission.
+- **Current record boundary**: Health document synchronization uses HTTPS `GET`; SCSP endpoints are fixed, the account authority is runtime-supplied but allowlisted, and sync writes the local mirror.
+- **Clinical scope**: Project-provided analyses are descriptive, not diagnostic or prescriptive. Raw records can still contain vendor-authored labels or free text.
+- **Redaction**: Project-owned token fields are masked. The gated individual-record tool additionally allowlists fields; aggregate tools are not anonymized.
 - **Strict Bounding**: Pagination parameters are strictly validated; out-of-range values are rejected rather than silently clamped.

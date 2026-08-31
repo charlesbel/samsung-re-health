@@ -46,12 +46,13 @@ Create the GitHub `pypi` environment before tagging. Optional reviewers are an e
 After the release commit is on `main`, CI is green, and the pending publisher exists:
 
 ```bash
-git tag -a 0.7.0 -m "samsung-re-health 0.7.0"
-git push origin 0.7.0
+VERSION="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+git tag -a "$VERSION" -m "samsung-re-health $VERSION"
+git push origin "$VERSION"
 ```
 
 Do not upload manually in parallel. PyPI artifacts and versions are immutable; inspect remote state before any retry after partial failure.
 
 ## Post-Release Verification
 
-Confirm that PyPI reports version `0.7.0` and both artifacts, install `samsung-re-health[mcp]==0.7.0` from PyPI in a fresh environment, run canonical CLI/MCP help and stdio negotiation, and verify a non-draft GitHub `0.7.0` release with matching assets and repository links.
+Confirm that PyPI reports `$VERSION` and both artifacts, install `samsung-re-health[mcp]==$VERSION` from PyPI in a fresh environment, run canonical CLI/MCP help and stdio negotiation, and verify a non-draft GitHub `$VERSION` release with matching assets and repository links.

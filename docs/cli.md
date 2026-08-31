@@ -159,7 +159,7 @@ These lower-level surfaces are for diagnostics, migration, and complete exports.
 - `raw_observed` fields have no approved semantic meaning or unit.
 - Sleep `AWAKE` intervals are not counts of conscious awakenings.
 - Source records are not automatically distinct nights.
-- Samsung-reported efficiency and locally derived stage coverage are different quantities.
+- Efficiency is a value stored in the Samsung document and passed through without local recalculation; derived stage coverage is computed locally. This project does not claim to know Samsung's generating formula.
 - `time_window_only` joins prove temporal overlap, not parentage or causality.
 - Never disclose credentials, authorization headers, tokens, signed URLs, internal identifiers, exact coordinates, hardware values, or unnecessary raw records.
 - Outputs are descriptive, not diagnostic or prescriptive medical advice.

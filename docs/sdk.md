@@ -48,7 +48,7 @@ with SamsungHealthClient(config=config) as client:
     analysis = client.analyze("activity", period="week", compare="previous")
 ```
 
-`sync()` fetches Health documents through fixed validated HTTPS GET endpoints and writes only to the private local SQLite mirror. Authentication and SCSP session setup use narrow fixed endpoints but cannot create, update, or delete Health records.
+`sync()` fetches Health documents through validated HTTPS GET endpoints and writes to the private local SQLite mirror. SCSP endpoints are fixed; the Samsung account authority is supplied by trusted master state and validated against a closed allowlist. These flows cannot create, update or delete Health records through the current client.
 
 ## `SamsungHealthLocalClient`
 
@@ -143,7 +143,7 @@ Validate user input before constructing an online client when practical. Never i
 
 - `raw_observed` fields have structural presence but no approved semantic meaning or unit.
 - Sleep `AWAKE` intervals are not conscious-awakening counts.
-- Samsung-reported efficiency and locally derived stage coverage are different quantities.
+- Efficiency is read from the Samsung document without local recalculation; derived stage coverage is computed locally. The formula Samsung used to produce the stored value is not claimed.
 - `time_window_only` joins indicate temporal overlap, not parentage or causality.
 - Structural coverage is not medical or semantic completeness.
 - Outputs are descriptive and must not be used as diagnosis or treatment advice.

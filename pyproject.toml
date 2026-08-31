@@ -1,6 +1,6 @@
 [project]
 name = "samsung-re-health"
-version = "0.7.0"
+version = "0.7.1"
 description = "Unofficial reverse-engineered Samsung Health SDK, JSON CLI & MCP server"
 readme = "README.md"
 authors = [{ name = "Charles Bel" }]

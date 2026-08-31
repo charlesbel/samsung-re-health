@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-08-31
+
+### Changed
+- Reworked the README to explain direct Samsung Health Cloud synchronization, the incremental SQLite mirror, SDK/CLI/MCP access, and the project's relationship to the official Android SDK, Health Connect, mobile integration services, and export converters.
+- Made bundled-skill installation instructions harness-neutral by requiring the agent runtime's configured skills directory instead of a framework-specific path.
+- Clarified the boundaries between Samsung-reported values, observed private fields, locally derived analyses, structural coverage, and semantic validation.
+- Refined the documented data flow and read boundary: cloud health documents are fetched without record mutation, while synchronization still writes local mirror and checkpoint state.
+
+### Fixed
+- Scoped MCP redaction guarantees separately from raw CLI and SDK outputs.
+- Corrected endpoint-authority, provenance, release, migration, privacy, and offline-storage wording that could imply broader guarantees than the implementation provides.
+- Added documentation contracts for product positioning and portable agent-skill installation.
+
 ## [0.7.0] - 2026-08-30
 
 ### Added

@@ -1,7 +1,7 @@
 ---
 name: samsung-re-health
 description: Query and analyze Samsung Health data safely.
-version: 0.7.0
+version: 0.7.1
 author: Charles Bel, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]

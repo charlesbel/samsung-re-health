@@ -4,7 +4,7 @@
 
 Le client doit couvrir **chaque couple manifest/champ réellement observé dans le miroir du compte**, sans transformer un nom plausible en fait médical ou en unité inventée.
 
-La garantie d’exhaustivité est structurelle :
+La couverture annoncée est structurelle et bornée au miroir interrogé : couples manifest/champ décodés, associés à un manifest résolu dans le catalogue local au moment de la commande. Elle ne couvre pas les collections indisponibles, documents non décodés, pièces jointes ou contenus E2EE inaccessibles.
 
 1. chaque champ observé est présent dans `fields` / `field_analysis` ;
 2. chaque champ possède exactement un statut de provenance ;
@@ -79,11 +79,11 @@ JADX a signalé 333 erreurs de méthodes sur l’ensemble très obfusqué. Une c
 
 ## Activité et déduplication
 
-`StepDailyTrend.source_type == -2` est le total Samsung toutes sources dédupliqué. Seul ce record est agrégé. Si une journée n’en possède pas, elle est comptée dans `days_without_authoritative_all_sources` et aucun maximum arbitraire téléphone/montre n’est utilisé comme total.
+`StepDailyTrend.source_type == -2` est documenté comme le record Samsung « toutes sources dédupliquées » et est sélectionné comme total fournisseur. Cela n'en fait pas une vérité physiologique exhaustive. Si une journée n’en possède pas, elle est comptée dans `days_without_authoritative_all_sources` et aucun maximum arbitraire téléphone/montre n’est utilisé comme total.
 
 ## Statistiques neutres
 
-Pour un champ non documenté :
+Pour un champ non documenté, les sorties ci-dessous sont des résumés mécaniques du type de stockage, pas des statistiques métier intrinsèquement valides :
 
 - nombres : présence, somme, moyenne arithmétique, écart type population, écart type échantillon, minimum, maximum, dernière valeur observée ;
 - booléens : vrais/faux ;
@@ -91,7 +91,7 @@ Pour un champ non documenté :
 - objets/listes : nombre, clés ou nombre d’éléments ;
 - valeurs nulles/absentes : comptages séparés.
 
-Ces statistiques décrivent les données ; elles ne donnent aucune unité, aucun seuil clinique et aucune signification métier.
+Une somme ou moyenne peut être dépourvue de sens pour un identifiant numérique ou une catégorie codée. La « dernière » valeur dépend de l’ordre temporel retenu par la requête. Ces résumés ne donnent aucune unité, aucun seuil clinique et aucune signification métier.
 
 ## Validation sur le compte
 

@@ -20,12 +20,14 @@
    - Unverified fields present in cloud synchronization payloads.
    - Kept in their exact raw field names with neutral descriptive statistics (count, min, max, mean, presence) without inferring clinical semantics.
 
-### Bundled Baseline Catalog & Non-Personal Guarantee
+Open-source projects may corroborate a field interpretation but do not outrank Samsung documentation. When the runtime registry uses `open_source`, it denotes that narrower source class rather than an official definition.
 
-The runtime baseline catalog bundled in `src/samsung_health_cloud/resources/manifests.json` contains strictly non-personal, account-independent manifest IDs and schema revision numbers:
+### Bundled Baseline Catalog Contents
+
+The runtime baseline catalog bundled in `src/samsung_health_cloud/resources/manifests.json` contains manifest identifiers and schema revisions but no health records or populated routing token:
 - All push IDs are strictly empty strings (`"push_id": ""`), ensuring no device or account routing tokens are packaged.
 - Revisions reflect the baseline schemas at release time. As Samsung Cloud updates data schemas over time, revisions in the bundled baseline may become superseded. When online synchronization is run (`samsung-re-health sync`), the client automatically discovers and updates local manifests with active cloud revisions.
 
 ### Attribution and Independent Verification
 
-All field definitions in `samsung_health_cloud/semantics.py` explicitly declare their provenance tag, reference source, and caveats. Structural coverage of fields is tracked independently from semantic interpretation to guarantee full data fidelity.
+Registered field definitions in `samsung_health_cloud/semantics.py` declare a provenance tag and source; uncertain evidence classes also carry explicit caveats. Structural coverage is tracked separately so decoded fields observed in the counted mirror scope are not silently hidden. This does not guarantee complete cloud access, lossless decoding, attachment/E2EE availability, semantic completeness or end-to-end data fidelity.

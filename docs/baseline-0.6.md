@@ -4,7 +4,7 @@
 - **Package Name**: `samsung-health-cloud`
 - **Initial Baseline Version**: 0.6.0
 - **Test Suite**: 54 pytest test cases across 15 test modules
-- **Target Python Version**: >=3.11 / >=3.12
+- **Declared minimum Python version**: >=3.11
 
 ## Initial Capabilities
 - Single unified CLI handling commands: `init`, `status`, `doctor`, `types`, `inventory`, `schema`, `data`, `sync`, `analyze`, `summary`, `cache-status`.

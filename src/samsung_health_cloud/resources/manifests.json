@@ -1,6 +1,12 @@
 {
   "manifests": [
     {
+      "manifest_id": "com.samsung.health.antioxidant",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 2
+    },
+    {
       "manifest_id": "com.samsung.health.blood_glucose",
       "manifest_version": 1,
       "push_id": "",
@@ -34,7 +40,7 @@
       "manifest_id": "com.samsung.health.exercise",
       "manifest_version": 1,
       "push_id": "",
-      "schema_revision": 17
+      "schema_revision": 36
     },
     {
       "manifest_id": "com.samsung.health.food_info",
@@ -58,7 +64,7 @@
       "manifest_id": "com.samsung.health.sleep",
       "manifest_version": 1,
       "push_id": "",
-      "schema_revision": 18
+      "schema_revision": 19
     },
     {
       "manifest_id": "com.samsung.health.sleep_stage",
@@ -88,13 +94,43 @@
       "manifest_id": "com.samsung.health.weight",
       "manifest_version": 1,
       "push_id": "",
-      "schema_revision": 13
+      "schema_revision": 12
+    },
+    {
+      "manifest_id": "com.samsung.shealth.cycle.prediction",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 5
+    },
+    {
+      "manifest_id": "com.samsung.shealth.mood",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 2
+    },
+    {
+      "manifest_id": "com.samsung.shealth.program.sleep_coaching.session",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 5
+    },
+    {
+      "manifest_id": "com.samsung.shealth.sleep_combined",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 9
     },
     {
       "manifest_id": "com.samsung.shealth.step_daily_trend",
       "manifest_version": 1,
       "push_id": "",
       "schema_revision": 14
+    },
+    {
+      "manifest_id": "com.samsung.shealth.tracker.pedometer_day_summary",
+      "manifest_version": 1,
+      "push_id": "",
+      "schema_revision": 7
     }
   ]
 }

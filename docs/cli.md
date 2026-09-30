@@ -78,6 +78,8 @@ samsung-re-health schema [QUERY]
 
 `coverage_percent == 100` means every observed field is surfaced, not that every field is officially documented or every cloud collection is accessible.
 
+The bundled catalog is a baseline, not a live catalog-discovery API. Version 0.7.2 corrects a bounded set of known stale schema revisions from existing private catalogs in memory. Loading preserves the catalog file, manifest versions, routing metadata, unrelated entries, and custom revisions. Future Samsung schema changes still require a verified update; HTTP 400 is not automatically retried with guessed revisions.
+
 ## Preferred Analysis Interface
 
 ```bash

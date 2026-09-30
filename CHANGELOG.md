@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-09-30
+
+### Fixed
+- Updated nine verified Samsung Cloud schema revisions to restore synchronization after HTTP 400 schema-revision errors.
+- Corrected known stale revisions when reading an existing private catalog, without modifying its file, routing metadata, manifest versions, or unrelated/custom revisions.
+- Updated the bundled baseline catalog for the affected types and added synthetic synchronization and private-catalog preservation regressions.
+
 ## [0.7.1] - 2026-08-31
 
 ### Changed

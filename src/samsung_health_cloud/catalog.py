@@ -4,7 +4,7 @@ import json
 import os
 import tempfile
 from collections.abc import Iterable
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from importlib.resources import files
 from pathlib import Path
 
@@ -12,6 +12,30 @@ from .exceptions import SamsungHealthCloudError
 from .models import ManifestInfo
 
 __all__ = ["CatalogStore", "ManifestInfo", "load_bundled_manifests"]
+
+# Verified cloud revisions. Correct only known stale values, not arbitrary
+# user revisions; loading must never rewrite the private catalog on disk.
+_SCHEMA_CORRECTIONS = {
+    "com.samsung.health.antioxidant": ({1}, 2),
+    "com.samsung.health.exercise": ({17, 35}, 36),
+    "com.samsung.health.sleep": ({18}, 19),
+    "com.samsung.health.weight": ({11, 13}, 12),
+    "com.samsung.shealth.cycle.prediction": ({4}, 5),
+    "com.samsung.shealth.mood": ({1}, 2),
+    "com.samsung.shealth.program.sleep_coaching.session": ({4}, 5),
+    "com.samsung.shealth.sleep_combined": ({8}, 9),
+    "com.samsung.shealth.tracker.pedometer_day_summary": ({6}, 7),
+}
+
+
+def _correct_known_revisions(manifests: list[ManifestInfo]) -> list[ManifestInfo]:
+    corrected = []
+    for manifest in manifests:
+        correction = _SCHEMA_CORRECTIONS.get(manifest.manifest_id)
+        if correction and manifest.schema_revision in correction[0]:
+            manifest = replace(manifest, schema_revision=correction[1])
+        corrected.append(manifest)
+    return corrected
 
 
 def load_bundled_manifests() -> list[ManifestInfo]:
@@ -39,7 +63,9 @@ class CatalogStore:
             return []
         try:
             payload = json.loads(self.path.read_text(encoding="utf-8"))
-            return [ManifestInfo(**entry) for entry in payload["manifests"]]
+            return _correct_known_revisions(
+                [ManifestInfo(**entry) for entry in payload["manifests"]]
+            )
         except (OSError, ValueError, KeyError, TypeError) as exc:
             raise SamsungHealthCloudError("unable to read Samsung Health manifest catalog") from exc
 

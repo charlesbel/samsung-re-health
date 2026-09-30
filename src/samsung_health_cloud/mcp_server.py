@@ -480,7 +480,7 @@ def run_stdio_server(server: SamsungHealthMcpServer | None = None) -> int:
     except ImportError as exc:
         raise SamsungHealthError("MCP support requires installation with the 'mcp' extra") from exc
 
-    official = Server("samsung-re-health", version="0.7.1")
+    official = Server("samsung-re-health", version="0.7.2")
 
     @official.list_tools()
     async def handle_list_tools() -> list[Tool]:
@@ -513,7 +513,7 @@ def run_stdio_server(server: SamsungHealthMcpServer | None = None) -> int:
                 write_stream,
                 InitializationOptions(
                     server_name="samsung-re-health",
-                    server_version="0.7.1",
+                    server_version="0.7.2",
                     capabilities=official.get_capabilities(NotificationOptions(), {}),
                 ),
             )

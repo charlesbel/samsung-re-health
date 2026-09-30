@@ -171,7 +171,7 @@ def test_mcp_stdio_handshake_synthetic_home(tmp_path: Path):
         proc.stdin.flush()
         init_resp = json.loads(proc.stdout.readline())
         assert init_resp["result"]["serverInfo"]["name"] == "samsung-re-health"
-        assert init_resp["result"]["serverInfo"]["version"] == "0.7.1"
+        assert init_resp["result"]["serverInfo"]["version"] == "0.7.2"
 
         # Notification
         proc.stdin.write(

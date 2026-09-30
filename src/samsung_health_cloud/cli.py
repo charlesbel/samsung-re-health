@@ -53,7 +53,7 @@ except PackageNotFoundError:
     try:
         __version__ = version("samsung-health-cloud")
     except PackageNotFoundError:
-        __version__ = "0.7.1"
+        __version__ = "0.7.2"
 
 DEFAULT_MASTER_STATE = default_master_state_path()
 DEFAULT_HEALTH_STATE = Path(platformdirs.user_state_dir("samsung-health-cloud")) / "state.json"

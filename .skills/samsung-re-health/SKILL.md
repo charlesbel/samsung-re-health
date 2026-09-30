@@ -1,7 +1,7 @@
 ---
 name: samsung-re-health
 description: Query and analyze Samsung Health data safely.
-version: 0.7.1
+version: 0.7.2
 author: Charles Bel, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
@@ -123,6 +123,7 @@ Do not enable either globally “just in case.” The general CLI/SDK raw-data A
 ## Pitfalls
 
 - The API is private and can change without notice.
+- Per-manifest HTTP 400 failures can indicate schema-revision drift rather than expired authentication. Version 0.7.2 corrects known stale revisions in memory without rewriting private catalogs. Diagnose future changes using bounded GET probes and validated response status; never print raw payloads, secrets, or records, and never guess new revisions in normal synchronization.
 - The server may ignore requested time bounds and return an entire collection; avoid frequent full-history or all-type syncs.
 - Date-only `--until` follows the selected civil timezone; set it explicitly when the user’s day boundary matters.
 - `--envelope` can include files, URLs, E2EE markers, and unknown future keys; it is a diagnostic surface, not normal response material.

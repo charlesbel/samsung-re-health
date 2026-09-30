@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Corrected known stale revisions when reading an existing private catalog, without modifying its file, routing metadata, manifest versions, or unrelated/custom revisions.
 - Updated the bundled baseline catalog for the affected types and added synthetic synchronization and private-catalog preservation regressions.
 
+### Security
+- Updated the locked transitive PyJWT dependency to a patched release identified by the dependency audit.
+
 ## [0.7.1] - 2026-08-31
 
 ### Changed

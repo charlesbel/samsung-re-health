@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+- Updated the MCP SDK pin to 1.30.0 and the locked certifi dependency to 2026.10.19 to fix CVE-2026-59951 and PYSEC-2026-4320, restoring the scheduled dependency audit without suppressing findings.
+
 ## [0.7.2] - 2026-09-30
 
 ### Fixed

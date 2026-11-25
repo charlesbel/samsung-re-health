@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Connect MCP clients to a running server at `/mcp` with `--transport streamable-http`. The command still uses stdio by default.
+
 ### Security
 - Updated the MCP SDK pin to 1.30.0 and the locked certifi dependency to 2026.10.19 to fix CVE-2026-59951 and PYSEC-2026-4320, restoring the scheduled dependency audit without suppressing findings.
 

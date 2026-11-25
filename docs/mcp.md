@@ -2,7 +2,7 @@
 
 > **Disclaimer**: `samsung-re-health` is an unofficial, reverse-engineered project and is not affiliated with Samsung Electronics Co., Ltd. Its current Health document client reads cloud records with GET requests and does not modify them.
 
-`samsung-re-health` provides a Model Context Protocol (MCP) server over `stdio` (`samsung-re-health-mcp`) with narrow tools and explicit gates. Every enabled result can contain personal health information and is sent to the configured MCP client.
+`samsung-re-health-mcp` provides the same MCP tools over stdio (the default) and Streamable HTTP. Every enabled result can contain personal health information and is sent to the configured MCP client.
 
 ## Installation
 
@@ -24,6 +24,16 @@ pip install 'samsung-re-health[mcp]'
 ```
 
 > **Compatibility Note**: The legacy alias `samsung-health-mcp` is also supported for backward compatibility.
+
+## Streamable HTTP
+
+```bash
+samsung-re-health-mcp --transport streamable-http --host 127.0.0.1 --port 8000
+```
+
+Configure the MCP client to connect to `http://127.0.0.1:8000/mcp`. The example uses the default HTTP bind address and port. Tool flags work in either transport.
+
+HTTP mode accepts the bind address as the request host. Use `--allowed-host` to add an exact HTTP Host header value, including the port if the client sends one. An explicit allowed host is required for wildcard binds such as `0.0.0.0`. Requests carrying an Origin header are rejected. For network access, put the listener behind an authenticated HTTPS proxy and restrict direct access to the listener.
 
 ## Default Tools (Read-Only & Aggregates)
 

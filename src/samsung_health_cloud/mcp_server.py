@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 from collections.abc import Callable
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -467,20 +469,16 @@ def _validate_arguments(schema: dict[str, Any], arguments: Any) -> str | None:
     return None
 
 
-def run_stdio_server(server: SamsungHealthMcpServer | None = None) -> int:
-    """Run the pinned official MCP SDK server over stdio."""
-    mcp_server = server or create_mcp_server()
+def _build_sdk_server(mcp_server: SamsungHealthMcpServer):
     try:
-        import anyio
-        from mcp.server import NotificationOptions
+        from anyio import CapacityLimiter, to_thread
         from mcp.server.lowlevel import Server
-        from mcp.server.models import InitializationOptions
-        from mcp.server.stdio import stdio_server
         from mcp.types import CallToolResult, TextContent, Tool, ToolAnnotations
     except ImportError as exc:
         raise SamsungHealthError("MCP support requires installation with the 'mcp' extra") from exc
 
     official = Server("samsung-re-health", version="0.7.2")
+    sync_limiter = CapacityLimiter(1)
 
     @official.list_tools()
     async def handle_list_tools() -> list[Tool]:
@@ -496,30 +494,70 @@ def run_stdio_server(server: SamsungHealthMcpServer | None = None) -> int:
 
     @official.call_tool(validate_input=True)
     async def handle_call_tool(name: str, arguments: dict[str, Any]) -> CallToolResult:
-        result = invoke_tool(mcp_server, name, arguments)
+        result = await to_thread.run_sync(
+            invoke_tool,
+            mcp_server,
+            name,
+            arguments,
+            limiter=sync_limiter if name == "samsung_health_sync" else None,
+        )
         payload = result.get("data") if result["ok"] else result["error"]
-        import json
-
         return CallToolResult(
             content=[TextContent(type="text", text=json.dumps(payload, sort_keys=True))],
             structuredContent=payload if isinstance(payload, dict) else None,
             isError=not result["ok"],
         )
 
+    return official
+
+
+def run_stdio_server(server: SamsungHealthMcpServer | None = None) -> int:
+    """Run the pinned official MCP SDK server over stdio."""
+    official = _build_sdk_server(server or create_mcp_server())
+    import anyio
+    from mcp.server.stdio import stdio_server
+
     async def serve() -> None:
         async with stdio_server() as (read_stream, write_stream):
             await official.run(
                 read_stream,
                 write_stream,
-                InitializationOptions(
-                    server_name="samsung-re-health",
-                    server_version="0.7.2",
-                    capabilities=official.get_capabilities(NotificationOptions(), {}),
-                ),
+                official.create_initialization_options(),
             )
 
     anyio.run(serve)
 
+    return 0
+
+
+def _run_http_server(
+    server: SamsungHealthMcpServer, host: str, port: int, allowed_hosts: list[str]
+) -> int:
+    official = _build_sdk_server(server)
+    import uvicorn
+    from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+    from mcp.server.transport_security import TransportSecuritySettings
+    from starlette.applications import Starlette
+    from starlette.routing import Route
+
+    manager = StreamableHTTPSessionManager(
+        official,
+        stateless=True,
+        json_response=True,
+        security_settings=TransportSecuritySettings(allowed_hosts=allowed_hosts),
+    )
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        async with manager.run():
+            yield
+
+    class McpEndpoint:
+        async def __call__(self, scope, receive, send):
+            await manager.handle_request(scope, receive, send)
+
+    app = Starlette(routes=[Route("/mcp", McpEndpoint())], lifespan=lifespan)
+    uvicorn.run(app, host=host, port=port)
     return 0
 
 
@@ -536,7 +574,16 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(
         prog="samsung-re-health-mcp",
-        description="Unofficial reverse-engineered Samsung Health SDK, JSON CLI & MCP server (stdio)",
+        description="Unofficial reverse-engineered Samsung Health SDK, JSON CLI & MCP server",
+    )
+    parser.add_argument("--transport", choices=("stdio", "streamable-http"), default="stdio")
+    parser.add_argument("--host", help="HTTP bind address (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, help="HTTP bind port (default: 8000)")
+    parser.add_argument(
+        "--allowed-host",
+        action="append",
+        default=[],
+        help="Additional HTTP Host header value (include non-default port; repeatable)",
     )
     parser.add_argument(
         "--timezone",
@@ -566,6 +613,16 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
+    if args.transport == "stdio" and (
+        args.host is not None or args.port is not None or args.allowed_host
+    ):
+        parser.error("HTTP options require --transport streamable-http")
+    if args.port is not None and not 1 <= args.port <= 65535:
+        parser.error("--port must be between 1 and 65535")
+    if args.host in {"0.0.0.0", "::"} and not args.allowed_host:
+        parser.error("a wildcard bind address requires --allowed-host")
+    if any("*" in value for value in args.allowed_host):
+        parser.error("--allowed-host requires an exact HTTP Host header value")
 
     config = HealthConfig(
         master_state_path=args.master_state,
@@ -581,7 +638,14 @@ def main(argv: list[str] | None = None) -> int:
         allow_sync=args.allow_sync,
     )
 
-    return run_stdio_server(server)
+    if args.transport == "stdio":
+        return run_stdio_server(server)
+
+    host = args.host or "127.0.0.1"
+    port = args.port or 8000
+    authority = f"[{host}]" if ":" in host else host
+    bind_host_header = authority if port == 80 else f"{authority}:{port}"
+    return _run_http_server(server, host, port, [bind_host_header, *args.allowed_host])
 
 
 if __name__ == "__main__":

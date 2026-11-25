@@ -20,7 +20,7 @@ Most supported or community access paths solve a different problem:
 - Mobile integrations such as Terra and Health Sync can move or normalize Samsung Health data through Android, but their documented Samsung path reads from the phone rather than directly from a Samsung Health web API.[6][7]
 - Tools such as [FromSamToGarm](https://github.com/PhilippImhof/FromSamToGarm), [samsung-health-to-garmin](https://github.com/joaoruimatos/samsung-health-to-garmin) and [samsung-health-sdk](https://github.com/Devasy/samsung-health-sdk) parse or convert a Samsung Health export that the user first downloads from the mobile app.[3][4][5]
 
-`samsung-re-health` is designed for authorized **headless and repeatable cloud access**: perform one interactive Samsung Account login, synchronize documents directly from Samsung's private cloud protocol into a local SQLite mirror, then use the same data through a typed Python SDK, versioned JSON CLI or gated stdio MCP server. This avoids repeated manual app exports and supports incremental refresh plus offline analysis. It does not replace the official SDK for supported Android applications, Health Connect for cross-app Android interoperability, or export converters for Garmin/FIT migration.
+`samsung-re-health` is designed for authorized **headless and repeatable cloud access**: perform one interactive Samsung Account login, synchronize documents directly from Samsung's private cloud protocol into a local SQLite mirror, then use the same data through a typed Python SDK, versioned JSON CLI or gated MCP server. This avoids repeated manual app exports and supports incremental refresh plus offline analysis. It does not replace the official SDK for supported Android applications, Health Connect for cross-app Android interoperability, or export converters for Garmin/FIT migration.
 
 What this project adds for that use case:
 
@@ -34,7 +34,7 @@ What this project adds for that use case:
 - a Samsung Account setup flow and an online client for Health session initialization and cloud synchronization;
 - an offline client for querying and analyzing a local mirror;
 - a JSON CLI named `samsung-re-health`;
-- a stdio MCP server named `samsung-re-health-mcp`;
+- an MCP server named `samsung-re-health-mcp` with stdio and Streamable HTTP transports;
 - portable agent skills in `.skills/`.
 
 <details>

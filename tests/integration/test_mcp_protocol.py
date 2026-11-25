@@ -1,12 +1,103 @@
 from pathlib import Path
+from threading import Event
 
 from samsung_health_cloud import HealthConfig
 from samsung_health_cloud.mcp_server import (
     create_mcp_server,
     invoke_tool,
     list_registered_tools,
+    main,
 )
 from samsung_health_cloud.serialization import redact_raw_records
+
+
+def test_mcp_streamable_http_cli(tmp_path, monkeypatch):
+    import anyio
+    import httpx
+
+    sync_started = Event()
+    release_sync = Event()
+
+    def sync(_server, **_kwargs):
+        sync_started.set()
+        return {"read_completed_during_sync": release_sync.wait(3)}
+
+    async def exercise(app):
+        async with (
+            app.router.lifespan_context(app),
+            httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app),
+                base_url="http://health.test:8123",
+                headers={"Accept": "application/json, text/event-stream"},
+            ) as client,
+        ):
+
+            async def request(method, params, **headers):
+                return await client.post(
+                    "/mcp",
+                    headers=headers,
+                    json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
+                )
+
+            init = {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "synthetic-test", "version": "1.0"},
+            }
+            initialized = await request("initialize", init)
+            assert initialized.json()["result"]["serverInfo"]["name"] == "samsung-re-health"
+            assert (await request("initialize", init, Host="untrusted.test")).status_code == 421
+            assert (
+                await request("initialize", init, Origin="https://untrusted.test")
+            ).status_code == 403
+            tools = (await request("tools/list", {})).json()["result"]["tools"]
+            assert len(tools) == 8
+            assert "samsung_health_read_records" in {tool["name"] for tool in tools}
+
+            async def call_sync():
+                response = await request(
+                    "tools/call", {"name": "samsung_health_sync", "arguments": {}}
+                )
+                assert response.json()["result"]["structuredContent"] == {
+                    "read_completed_during_sync": True
+                }
+
+            async with anyio.create_task_group() as group:
+                group.start_soon(call_sync)
+                try:
+                    assert await anyio.to_thread.run_sync(sync_started.wait, 3)
+                    response = await request(
+                        "tools/call", {"name": "samsung_health_types", "arguments": {}}
+                    )
+                    assert response.json()["result"]["isError"] is False
+                finally:
+                    release_sync.set()
+
+    def run(app, *, host, port):
+        assert (host, port) == ("0.0.0.0", 8123)
+        anyio.run(exercise, app)
+
+    monkeypatch.setattr("uvicorn.run", run)
+    monkeypatch.setattr("samsung_health_cloud.mcp_server.SamsungHealthMcpServer._tool_sync", sync)
+    assert (
+        main(
+            [
+                "--transport",
+                "streamable-http",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8123",
+                "--allowed-host",
+                "health.test:8123",
+                "--cache",
+                str(tmp_path / "empty.sqlite3"),
+                "--allow-records",
+                "--allow-sync",
+            ]
+        )
+        == 0
+    )
 
 
 def test_mcp_protocol_direct_call_policy(tmp_path: Path):
